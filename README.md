@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # LostLink — Phase 1 (Auth, Roles, Profile)
 1. `cp .env.example .env.local`, fill values (`npx auth secret` for AUTH_SECRET). 2. `npm install && npm run dev`.
 3. Make the first admin by hand in Atlas: set `role: "admin"` on your user. Nobody can self-promote through the API.
