@@ -1,0 +1,21 @@
+# Production overlay:  docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env up -d --build
+# - real TLS certificate mounted at ./certs (fullchain.pem + privkey.pem)
+# - stricter resource limits, restart policy, TURN relay enabled
+# - secrets come from the env file kept OUT of git (or replace `environment` values with Docker secrets)
+services:
+  gateway:
+    volumes:
+      - /etc/letsencrypt/live/${APP_DOMAIN:?set APP_DOMAIN}:/certs:ro
+    restart: always
+    mem_limit: 256m
+  auth:     { restart: always, mem_limit: 512m, environment: { NODE_ENV: production, LOG_LEVEL: warn } }
+  items:    { restart: always, mem_limit: 768m, environment: { NODE_ENV: production, LOG_LEVEL: warn } }
+  matching: { restart: always, mem_limit: 512m, environment: { NODE_ENV: production, LOG_LEVEL: warn } }
+  claims:   { restart: always, mem_limit: 768m, environment: { NODE_ENV: production, LOG_LEVEL: warn } }
+  realtime: { restart: always, mem_limit: 768m, environment: { NODE_ENV: production, LOG_LEVEL: warn } }
+  notify:   { restart: always, mem_limit: 384m, environment: { NODE_ENV: production, LOG_LEVEL: warn } }
+  mongo:    { restart: always, mem_limit: 2g }
+  redis:    { restart: always, mem_limit: 512m }
+  coturn:
+    profiles: []                  # enabled in production
+    restart: always

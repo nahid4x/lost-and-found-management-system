@@ -1,0 +1,152 @@
+# FindIt gateway. TLS, rate limits, security headers, admin pre-check, WebSocket upgrade, routing.
+# Browsers only ever talk to this server; every other container sits on an internal Docker network.
+
+server_tokens off;
+
+limit_req_zone $binary_remote_addr zone=web:10m   rate=30r/s;
+limit_req_zone $binary_remote_addr zone=api:10m   rate=20r/s;
+limit_req_zone $binary_remote_addr zone=authz:10m rate=5r/s;
+limit_req_status 429;
+limit_conn_zone $binary_remote_addr zone=perip:10m;
+
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+
+upstream auth_up     { server auth:4001; keepalive 16; }
+upstream items_up    { server items:4002; keepalive 16; }
+upstream claims_up   { server claims:4004; keepalive 16; }
+upstream notify_up   { server notify:4006; keepalive 16; }
+# Sticky sessions for Socket.IO long-polling fallback + WebSocket upgrade (use more servers to scale out).
+upstream realtime_up { ip_hash; server realtime:4005; }
+upstream frontend_up { server frontend:8080; keepalive 8; }
+
+server {
+  listen 8080 default_server;
+  server_name _;
+  location = /healthz { access_log off; return 200 "ok\n"; }
+  location / { return 301 https://$host$request_uri; }
+}
+
+server {
+  listen 8443 ssl default_server;
+  http2 on;
+  server_name _;
+
+  ssl_certificate     /tmp/certs/fullchain.pem;
+  ssl_certificate_key /tmp/certs/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_prefer_server_ciphers off;
+  ssl_session_cache shared:SSL:10m;
+  ssl_session_timeout 1d;
+  ssl_session_tickets off;
+
+  client_max_body_size 64k;
+  client_body_timeout 15s;
+  client_header_timeout 15s;
+  keepalive_timeout 30s;
+  limit_conn perip 40;
+  autoindex off;
+  # Default upstream timeouts (the Socket.IO location overrides the read/send timeouts).
+  proxy_connect_timeout 5s;
+  proxy_read_timeout 30s;
+
+  # --- never expose dotfiles, backups, source maps, service-internal routes ---
+  location ~ /\.            { return 404; }
+  location ~* \.(bak|old|orig|swp|sql|env|log|map|ini|yml|yaml|lock)$ { return 404; }
+  location ~ ^/api/[^/]+/(internal|gateway)(/|$) { return 404; }
+  location ~ ^/(internal|gateway)(/|$) { return 404; }
+
+  location = /healthz { access_log off; add_header Cache-Control "no-store"; return 200 "ok\n"; }
+
+  # --- admin pre-check: valid JWT + admin role (verified against the Auth DB) before ANY /admin/* request reaches a service ---
+  location = /_admin_verify {
+    internal;
+    proxy_pass http://auth_up/internal/gateway-verify;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header Authorization $http_authorization;
+    proxy_set_header X-Internal-Token "${INTERNAL_SERVICE_TOKEN}";
+    proxy_http_version 1.1;
+  }
+  location ~ ^/api/(?<svc>auth|items|claims)/admin/ {
+    auth_request /_admin_verify;
+    limit_req zone=api burst=20 nodelay;
+    include /etc/nginx/snippets/api-headers.conf;
+    include /etc/nginx/snippets/proxy.conf;
+    rewrite ^/api/(auth|items|claims)/(.*)$ /$2 break;
+    proxy_pass http://${svc}_up;
+  }
+
+  # --- API routing (prefix stripped) ---
+  # Profile picture upload: the only auth route that accepts a large body (5 MB image + a little headroom).
+  location = /api/auth/me/avatar {
+    client_max_body_size 6m;
+    client_body_timeout 30s;
+    limit_req zone=authz burst=5 nodelay;
+    include /etc/nginx/snippets/api-headers.conf;
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_pass http://auth_up/me/avatar;
+  }
+  # Profile pictures are public images, cached by the browser (the URL carries a ?v= version).
+  location ^~ /api/auth/avatar/ {
+    limit_req zone=api burst=60 nodelay;
+    include /etc/nginx/snippets/proxy.conf;
+    add_header X-Content-Type-Options "nosniff" always;
+    proxy_pass http://auth_up/avatar/;
+  }
+  location /api/auth/ {
+    limit_req zone=authz burst=10 nodelay;
+    include /etc/nginx/snippets/api-headers.conf;
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_pass http://auth_up/;
+  }
+  location /api/items/ {
+    client_max_body_size 26m;
+    limit_req zone=api burst=40 nodelay;
+    include /etc/nginx/snippets/api-headers.conf;
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_pass http://items_up/;
+  }
+  location /api/claims/ {
+    client_max_body_size 16m;
+    limit_req zone=api burst=20 nodelay;
+    include /etc/nginx/snippets/api-headers.conf;
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_pass http://claims_up/;
+  }
+  location /api/notify/ {
+    limit_req zone=api burst=30 nodelay;
+    include /etc/nginx/snippets/api-headers.conf;
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_pass http://notify_up/;
+  }
+  location /api/realtime/ {
+    limit_req zone=api burst=40 nodelay;
+    include /etc/nginx/snippets/api-headers.conf;
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_pass http://realtime_up/;
+  }
+  location = /api { return 404; }
+  location /api/ { return 404; }
+
+  # --- WebSocket / Socket.IO (authenticated in the handshake by the realtime service) ---
+  location /socket.io/ {
+    limit_req zone=api burst=40 nodelay;
+    include /etc/nginx/snippets/api-headers.conf;
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_read_timeout 1h;
+    proxy_send_timeout 1h;
+    proxy_buffering off;
+    proxy_pass http://realtime_up;
+  }
+
+  # --- SPA ---
+  location / {
+    limit_req zone=web burst=60 nodelay;
+    include /etc/nginx/snippets/security-headers.conf;
+    include /etc/nginx/snippets/proxy.conf;
+    proxy_hide_header X-Powered-By;
+    proxy_pass http://frontend_up;
+  }
+}

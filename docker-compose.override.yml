@@ -1,0 +1,7 @@
+services:
+  gateway:
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /run
+      - /etc/nginx/conf.d:uid=101,gid=101

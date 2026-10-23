@@ -1,5 +1,0 @@
-@tailwind base;@tailwind components;@tailwind utilities;
-html,body{overflow-x:hidden}body{@apply bg-ink text-slate-100 antialiased}
-.input{@apply w-full rounded-lg border border-line bg-panel px-3 py-2.5 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal}
-.btn{@apply inline-flex items-center justify-center rounded-lg bg-teal px-4 py-2.5 font-medium text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-50}
-.card{@apply rounded-xl border border-line bg-panel p-5 sm:p-6}

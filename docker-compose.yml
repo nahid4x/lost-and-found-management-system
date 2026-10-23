@@ -1,0 +1,212 @@
+# FindIt - local / staging stack. Only the gateway publishes host ports.
+#   ./scripts/init-env.sh && docker compose up --build
+name: findit
+
+x-node-service: &node-service
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 256
+  mem_limit: 512m
+  logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+x-common-env: &common-env
+  NODE_ENV: ${NODE_ENV:-production}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
+  INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
+  REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379
+  TRUST_PROXY_HOPS: "1"
+
+services:
+  gateway:
+    build: ./gateway
+    restart: unless-stopped
+    ports: ["80:8080", "443:8443"]
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?set INTERNAL_SERVICE_TOKEN}
+    volumes:
+      - ./certs:/certs:ro            # optional: fullchain.pem + privkey.pem (otherwise a dev self-signed cert is generated)
+    networks: [edge, backend]
+    depends_on:
+      frontend: { condition: service_healthy }
+      auth: { condition: service_healthy }
+      items: { condition: service_healthy }
+      claims: { condition: service_healthy }
+      realtime: { condition: service_healthy }
+      notify: { condition: service_healthy }
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: [/tmp, /var/cache/nginx, /run]
+    pids_limit: 256
+    mem_limit: 256m
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    networks: [backend]
+    read_only: true
+    tmpfs: [/tmp, /var/cache/nginx, /run]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+
+  auth:
+    <<: *node-service
+    build: { context: ./services, dockerfile: auth/Dockerfile }
+    environment:
+      <<: *common-env
+      PORT: "4001"
+      MONGO_URL: mongodb://findit_auth:${MONGO_AUTH_PASSWORD:?set}@mongo:27017/findit_auth?authSource=findit_auth
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+    networks: [backend]
+    depends_on: { mongo: { condition: service_healthy }, redis: { condition: service_healthy } }
+
+  items:
+    <<: *node-service
+    build: { context: ./services, dockerfile: items/Dockerfile }
+    environment:
+      <<: *common-env
+      PORT: "4002"
+      MONGO_URL: mongodb://findit_items:${MONGO_ITEMS_PASSWORD:?set}@mongo:27017/findit_items?authSource=findit_items
+      MATCHING_URL: http://matching:4003
+      AUTH_URL: http://auth:4001
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?set CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?set CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?set CLOUDINARY_API_SECRET}
+    networks: [backend, egress]
+    depends_on: { mongo: { condition: service_healthy }, redis: { condition: service_healthy } }
+
+  matching:
+    <<: *node-service
+    build: { context: ./services, dockerfile: matching/Dockerfile }
+    environment:
+      <<: *common-env
+      PORT: "4003"
+      MONGO_URL: mongodb://findit_matching:${MONGO_MATCHING_PASSWORD:?set}@mongo:27017/findit_matching?authSource=findit_matching
+      MATCH_THRESHOLD: ${MATCH_THRESHOLD:-45}
+      MATCH_RADIUS_KM: ${MATCH_RADIUS_KM:-2}
+    networks: [backend]          # not routed by the gateway: no public endpoints
+    depends_on: { mongo: { condition: service_healthy }, redis: { condition: service_healthy } }
+
+  claims:
+    <<: *node-service
+    build: { context: ./services, dockerfile: claims/Dockerfile }
+    environment:
+      <<: *common-env
+      PORT: "4004"
+      MONGO_URL: mongodb://findit_claims:${MONGO_CLAIMS_PASSWORD:?set}@mongo:27017/findit_claims?authSource=findit_claims
+      AUTH_URL: http://auth:4001
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:?set CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:?set CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:?set CLOUDINARY_API_SECRET}
+    networks: [backend, egress]
+    depends_on: { mongo: { condition: service_healthy }, redis: { condition: service_healthy } }
+
+  realtime:
+    <<: *node-service
+    build: { context: ./services, dockerfile: realtime/Dockerfile }
+    environment:
+      <<: *common-env
+      PORT: "4005"
+      MONGO_URL: mongodb://findit_realtime:${MONGO_REALTIME_PASSWORD:?set}@mongo:27017/findit_realtime?authSource=findit_realtime
+      STUN_URLS: ${STUN_URLS:-stun:stun.l.google.com:19302}
+      TURN_URLS: ${TURN_URLS:-}
+      TURN_SECRET: ${TURN_SECRET:-}
+    networks: [backend]
+    depends_on: { mongo: { condition: service_healthy }, redis: { condition: service_healthy } }
+
+  notify:
+    <<: *node-service
+    build: { context: ./services, dockerfile: notify/Dockerfile }
+    environment:
+      <<: *common-env
+      PORT: "4006"
+      MONGO_URL: mongodb://findit_notify:${MONGO_NOTIFY_PASSWORD:?set}@mongo:27017/findit_notify?authSource=findit_notify
+      AUTH_URL: http://auth:4001
+      APP_URL: ${APP_URL:?set APP_URL}
+      MAIL_FROM: ${MAIL_FROM:-FindIt <no-reply@findit.local>}
+      SMTP_URL: ${SMTP_URL:-}     # set SMTP_URL=smtp://mailpit:1025 in .env for local dev
+    networks: [backend, egress]
+    depends_on: { mongo: { condition: service_healthy }, redis: { condition: service_healthy } }
+
+  # Local dev mail catcher. Inbox UI: http://localhost:8025 (bound to this machine only).
+  mailpit:
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports: ["127.0.0.1:8025:8025"]
+    networks: [backend, edge]     # backend: notify reaches smtp on 1025; edge: lets the UI port publish to the host
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    command: ["mongod", "--auth", "--bind_ip_all"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set}
+      MONGO_AUTH_PASSWORD: ${MONGO_AUTH_PASSWORD:?set}
+      MONGO_ITEMS_PASSWORD: ${MONGO_ITEMS_PASSWORD:?set}
+      MONGO_MATCHING_PASSWORD: ${MONGO_MATCHING_PASSWORD:?set}
+      MONGO_CLAIMS_PASSWORD: ${MONGO_CLAIMS_PASSWORD:?set}
+      MONGO_REALTIME_PASSWORD: ${MONGO_REALTIME_PASSWORD:?set}
+      MONGO_NOTIFY_PASSWORD: ${MONGO_NOTIFY_PASSWORD:?set}
+    volumes:
+      - mongo-data:/data/db
+      - ./docker/mongo-init.sh:/docker-entrypoint-initdb.d/10-users.sh:ro
+    networks: [backend]          # never published to the host
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID, DAC_OVERRIDE, FOWNER]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+
+  redis:
+    image: redis:7-alpine
+    user: "999:1000"
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set}", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes: [redis-data:/data]
+    networks: [backend]          # never published to the host
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set}
+    cap_drop: [ALL]
+    cap_add: [SETGID, SETUID]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+
+  # Optional TURN relay for calls behind strict NATs: docker compose --profile turn up
+  # NOTE: coturn must be reachable from the internet (UDP 3478 + relay range), the one deliberate exception to
+  # "only the gateway publishes ports". Use docker-compose.prod.yml on a host with a public IP.
+  coturn:
+    profiles: ["turn"]
+    image: coturn/coturn:4.6.2
+    restart: unless-stopped
+    command: >
+      -n --log-file=stdout --use-auth-secret --static-auth-secret=${TURN_SECRET:?set TURN_SECRET}
+      --realm=${TURN_REALM:-findit.local} --fingerprint --no-cli --no-multicast-peers
+      --denied-peer-ip=10.0.0.0-10.255.255.255 --denied-peer-ip=172.16.0.0-172.31.255.255 --denied-peer-ip=192.168.0.0-192.168.255.255
+      --min-port=49160 --max-port=49200
+    ports: ["3478:3478/udp", "3478:3478/tcp", "49160-49200:49160-49200/udp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  edge: {}                        # gateway <-> internet (published ports)
+  backend: { internal: true }     # no outbound internet: services, MongoDB and Redis live here
+  egress: {}                      # only items/claims (Cloudinary) and notify (SMTP) are attached
+
+volumes:
+  mongo-data: {}
+  redis-data: {}
