@@ -41,7 +41,7 @@ export function CallProvider({ children }) {
     conn.onicecandidate = (e) => { if (e.candidate) socket.emit('call:ice', { callId, data: e.candidate.toJSON() }, () => {}); };
     conn.oniceconnectionstatechange = () => {
       const st = conn.iceConnectionState;
-      setCall((c) => (c ? { ...c, reconnecting: st === 'disconnected' || st === 'checking' && c.phase === 'active', phase: st === 'connected' || st === 'completed' ? 'active' : c.phase } : c));
+      setCall((c) => (c ? { ...c, reconnecting: st === 'disconnected' || (st === 'checking' && c.phase === 'active'), phase: st === 'connected' || st === 'completed' ? 'active' : c.phase } : c));
       if (st === 'failed') finish('Call connection failed');
     };
     return conn;
@@ -109,20 +109,53 @@ export function CallProvider({ children }) {
   );
 }
 
-function Stream({ stream, className, muted }) {
+// Plays a media stream. If the browser blocks autoplay with sound, a "Tap to hear" button appears.
+function Stream({ stream, className, muted, kind = 'video' }) {
   const ref = useRef(null);
-  useEffect(() => { if (ref.current) ref.current.srcObject = stream ?? null; }, [stream]);
-  return <video ref={ref} className={className} autoPlay playsInline muted={muted} />;
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.srcObject = stream ?? null;
+    if (stream && !muted) el.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+  }, [stream, muted]);
+  const Tag = kind === 'audio' ? 'audio' : 'video';
+  const extra = kind === 'audio' ? {} : { playsInline: true };
+  return (
+    <>
+      <Tag ref={ref} className={className} autoPlay muted={muted} {...extra} />
+      {blocked && <button className="btn primary" style={{ position: 'absolute', top: 16, left: 16, zIndex: 5 }} onClick={() => ref.current?.play().then(() => setBlocked(false)).catch(() => {})}>🔊 Tap to hear</button>}
+    </>
+  );
+}
+
+// Soft repeating beep while a call is ringing (generated in the browser, no audio file needed).
+function useRingtone(active) {
+  useEffect(() => {
+    if (!active) return undefined;
+    let ctx;
+    try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return undefined; }
+    const beep = () => {
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = 440; g.gain.value = 0.15;
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + 0.4);
+    };
+    beep();
+    const id = setInterval(beep, 1500);
+    return () => { clearInterval(id); ctx.close().catch(() => {}); };
+  }, [active]);
 }
 
 function CallOverlay({ call, remote, localStream, onAccept, onHangup, onMute, onCam }) {
   const video = call.callType === 'video';
+  useRingtone(call.phase === 'calling' || call.phase === 'ringing');
   const label = { calling: 'Calling…', ringing: 'Incoming call', connecting: 'Connecting…', active: call.reconnecting ? 'Reconnecting…' : 'Connected' }[call.phase];
   return (
     <div className="call" role="dialog" aria-modal="true" aria-label={`${video ? 'Video' : 'Audio'} call with ${call.peer.name}`}>
       <div className="call-stage">
-        {video && remote && <Stream stream={remote} className="remote" />}
-        {!video && remote && <Stream stream={remote} className="remote" />}
+        {remote && <Stream stream={remote} kind={video ? 'video' : 'audio'} className={video ? 'remote' : undefined} />}
         {(!video || !remote) && (
           <div className="call-who"><div className="col" style={{ alignItems: 'center' }}>
             <div className="avatar" style={{ width: 96, height: 96, fontSize: 32 }}>{initials(call.peer.name)}</div>
