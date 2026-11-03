@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Glass, Button, Chip, Modal, Field, Skeleton, Empty, Reveal } from '../components/ui.jsx';
 import { Gallery } from '../components/Gallery.jsx';
 import { Dropzone } from '../components/Dropzone.jsx';
-import { MatchRing, Timeline } from '../components/ItemParts.jsx';
+import { Timeline } from '../components/ItemParts.jsx';
 import { VerificationEditor } from '../components/VerificationEditor.jsx';
 import { validateEntries, toPayload, emptyEntry } from '../lib/verification.js';
 import { ApproxMap } from '../components/maps.jsx';
@@ -109,36 +109,6 @@ function VerificationPanel({ item, onChanged }) {
   );
 }
 
-function Matches({ item, onChange }) {
-  const toast = useToast();
-  const [matches, setMatches] = useState(null);
-  const [open, setOpen] = useState(null);
-  useEffect(() => { api.get(`/items/${item.id}/matches`).then((d) => setMatches(d.matches)).catch(() => setMatches([])); }, [item.id, item.status]);
-  const dismiss = async (m) => {
-    try { await api.post(`/items/${item.id}/matches/${m.id}/dismiss`); setMatches((x) => x.filter((y) => y.id !== m.id)); onChange?.(); } catch (e) { toast.error(errMsg(e)); }
-  };
-  if (!matches) return <Skeleton h={100} />;
-  return (
-    <Glass pad>
-      <h3>✨ AI match suggestions</h3>
-      {!matches.length ? <p className="muted">No likely matches yet. We will notify you the moment one appears.</p> : (
-        <div className="col">{matches.map((m) => (
-          <div key={m.id} className="glass pad" style={{ borderRadius: 16 }}>
-            <div className="row"><MatchRing score={m.score} />
-              <div style={{ flex: 1, minWidth: 180 }}><Link to={`/items/${m.item.id}`}><strong>{m.item.title}</strong></Link><div className="muted small">{catEmoji(m.item.category)} {catLabel(m.item.category)} · 📍 {m.item.area}</div></div>
-              <Button size="sm" onClick={() => setOpen(open === m.id ? null : m.id)} aria-expanded={open === m.id}>Why?</Button>
-              <Button size="sm" onClick={() => dismiss(m)} aria-label={`Dismiss match ${m.item.title}`}>Dismiss</Button>
-            </div>
-            {open === m.id && <div className="col" style={{ marginTop: 12 }}>{m.reasons.map((r) => (
-              <div key={r.factor}><div className="row small"><span style={{ textTransform: 'capitalize', fontWeight: 700 }}>{r.factor}</span><span className="spacer" /><span>{r.points}/{r.max}</span></div><div className="bar" role="presentation"><i style={{ width: `${(r.points / r.max) * 100}%` }} /></div><div className="faint small">{r.detail}</div></div>
-            ))}</div>}
-          </div>
-        ))}</div>
-      )}
-    </Glass>
-  );
-}
-
 export default function ItemDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -186,7 +156,6 @@ export default function ItemDetail() {
           </div>
         </div>
         {item.mine && item.type === 'found' && <div style={{ marginTop: 20 }}><VerificationPanel item={item} onChanged={load} /></div>}
-        {item.mine && item.type === 'lost' && <div style={{ marginTop: 20 }}><Matches item={item} onChange={load} /></div>}
       </Reveal>
       {canClaim && <ClaimModal item={item} open={claiming} onClose={() => setClaiming(false)} />}
     </div>
