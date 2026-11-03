@@ -22,11 +22,6 @@ export function validateStep(step, d, type) {
     if (!d.pin) e.pin = 'Drop a pin on the map';
     if (d.areaLabel.trim().length < 2) e.areaLabel = 'Name the area (e.g. “Ashulia, Dhaka”)';
   }
-  if (step === 'questions' && type === 'found') {
-    const filled = d.questions.map((q) => q.trim()).filter(Boolean);
-    if (!filled.length) e.questions = 'Add at least one private question';
-    if (filled.some((q) => q.length < 3)) e.questions = 'Questions need at least 3 characters';
-  }
   return e;
 }
 
@@ -34,9 +29,9 @@ export default function ReportPage() {
   const { type } = useParams();
   const nav = useNavigate();
   const toast = useToast();
-  const steps = useMemo(() => (type === 'found' ? ['basics', 'where', 'photos', 'questions', 'review'] : ['basics', 'where', 'photos', 'review']), [type]);
+  const steps = useMemo(() => ['basics', 'where', 'photos', 'review'], []);
   const [i, setI] = useState(0);
-  const [d, setD] = useState({ title: '', description: '', category: '', date: today(), pin: null, areaLabel: '', heldAt: '', contactNote: '', questions: [''], files: [] });
+  const [d, setD] = useState({ title: '', description: '', category: '', date: today(), pin: null, areaLabel: '', heldAt: '', contactNote: '', files: [] });
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
   if (!['lost', 'found'].includes(type)) return <Navigate to="/" replace />;
@@ -53,7 +48,8 @@ export default function ReportPage() {
       if (type === 'found') {
         if (d.heldAt.trim()) f.append('heldAt', d.heldAt.trim());
         if (d.contactNote.trim()) f.append('contactNote', d.contactNote.trim());
-        f.append('questions', JSON.stringify(d.questions.map((q) => q.trim()).filter(Boolean)));
+        // Server requires 1-3 verification questions for found items; send one generic default.
+        f.append('questions', JSON.stringify(['Describe one detail of this item that only the real owner would know.']));
       }
       d.files.forEach((file) => f.append('images', file));
       const r = await api.upload('/items/', f);
@@ -64,7 +60,7 @@ export default function ReportPage() {
   return (
     <div className="container" style={{ maxWidth: 820 }}>
       <Reveal>
-        <h1 style={{ fontSize: '2.2rem' }}>{type === 'lost' ? ' Report a lost item' : ' Report a found item'}</h1>
+        <h1 style={{ fontSize: '2.2rem' }}>{type === 'lost' ? 'Report a lost item' : 'Report a found item'}</h1>
         <div className="wiz-steps" role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={i + 1} aria-label={`Step ${i + 1} of ${steps.length}`}>{steps.map((s, k) => <span key={s} className={k <= i ? 'on' : ''} />)}</div>
         <Glass pad className="col">
           {step === 'basics' && <>
@@ -74,7 +70,8 @@ export default function ReportPage() {
             <Field label={type === 'lost' ? 'Date lost' : 'Date found'} type="date" max={today()} value={d.date} onChange={set('date')} error={errors.date} />
           </>}
           {step === 'where' && <>
-            <MapPicker value={d.pin} onChange={(pin) => setD((x) => ({ ...x, pin }))} />{errors.pin && <span className="err" role="alert">{errors.pin}</span>}
+            <MapPicker value={d.pin} onChange={set('pin')} onArea={(name) => setD((x) => ({ ...x, areaLabel: name }))} />
+            {errors.pin && <span className="err" role="alert">{errors.pin}</span>}
             <Field label="Area name (public)" value={d.areaLabel} onChange={set('areaLabel')} maxLength={80} error={errors.areaLabel} placeholder="Ashulia, Dhaka" hint="Shown on the report instead of your exact pin." />
             {type === 'found' && <>
               <Field label="Where is the item now? (private)" value={d.heldAt} onChange={set('heldAt')} maxLength={200} placeholder="Library front desk" hint="Shared only with the verified owner." />
@@ -82,20 +79,9 @@ export default function ReportPage() {
             </>}
           </>}
           {step === 'photos' && <><Dropzone files={d.files} onChange={(files) => setD((x) => ({ ...x, files }))} max={5} /><p className="hint">Photos help matching and verification. Hide anything sensitive (IDs, card numbers).</p></>}
-          {step === 'questions' && <>
-            <p className="muted">Ask 1–3 questions only the real owner can answer (contents, a scratch, a lock-screen picture). You will compare their answers yourself. We never store correct answers.</p>
-            {d.questions.map((q, k) => (
-              <div className="row" key={k} style={{ alignItems: 'flex-end', flexWrap: 'nowrap' }}>
-                <Field style={{ flex: 1 }} label={`Question ${k + 1}`} value={q} maxLength={200} onChange={(e) => setD((x) => ({ ...x, questions: x.questions.map((v, j) => (j === k ? e.target.value : v)) }))} />
-                {d.questions.length > 1 && <Button type="button" size="sm" aria-label={`Remove question ${k + 1}`} onClick={() => setD((x) => ({ ...x, questions: x.questions.filter((_, j) => j !== k) }))}>✕</Button>}
-              </div>
-            ))}
-            {errors.questions && <span className="err" role="alert">{errors.questions}</span>}
-            {d.questions.length < 3 && <Button type="button" size="sm" onClick={() => setD((x) => ({ ...x, questions: [...x.questions, ''] }))}>+ Add question</Button>}
-          </>}
           {step === 'review' && <div className="col">
-            <h3 style={{ margin: 0 }}>{d.title}</h3><p className="muted" style={{ margin: 0 }}>{catLabel(d.category)} · {fmtDate(d.date)} · 📍 {d.areaLabel}</p><p style={{ whiteSpace: 'pre-wrap' }}>{d.description}</p>
-            <p className="faint small">{d.files.length} photo(s){type === 'found' ? ` · ${d.questions.filter((q) => q.trim()).length} verification question(s)` : ''}. Your exact pin stays private.</p>
+            <h3 style={{ margin: 0 }}>{d.title}</h3><p className="muted" style={{ margin: 0 }}>{catLabel(d.category)} · {fmtDate(d.date)} · {d.areaLabel}</p><p style={{ whiteSpace: 'pre-wrap' }}>{d.description}</p>
+            <p className="faint small">{d.files.length} photo(s). Your exact pin stays private.</p>
           </div>}
           <div className="row">{i > 0 && <Button type="button" onClick={() => setI((x) => x - 1)}>← Back</Button>}<span className="spacer" />
             {step !== 'review' ? <Button variant="primary" type="button" onClick={next}>Continue →</Button> : <Button variant="primary" loading={busy} onClick={submit}>Publish report</Button>}</div>
