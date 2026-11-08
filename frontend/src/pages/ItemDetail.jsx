@@ -126,7 +126,7 @@ export default function ItemDetail() {
             </div>
           </div>
         </div>
-        {item.mine && <div style={{ marginTop: 20 }}><Matches item={item} onChange={load} /></div>}
+        
       </Reveal>
       {canClaim && <ClaimModal item={item} open={claiming} onClose={() => setClaiming(false)} />}
     </div>
