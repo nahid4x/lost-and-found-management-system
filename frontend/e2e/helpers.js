@@ -8,13 +8,14 @@ export async function register(page, name) {
   await page.goto('/register');
   await page.getByLabel('Full name').fill(name);
   await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.getByRole('link', { name: '+ Report' })).toBeVisible();
   return email;
 }
 
 export async function report(page, type, { title, description, category, area, questions = [] }) {
+  // questions: [[question, privateAnswer], ...] (found items only; the section is optional)
   await page.goto(`/report/${type}`);
   await page.getByLabel('Title').fill(title);
   await page.getByLabel('Category').selectOption(category);
@@ -25,9 +26,10 @@ export async function report(page, type, { title, description, category, area, q
   await page.getByRole('button', { name: /Continue/ }).click();
   await page.getByRole('button', { name: /Continue/ }).click(); // photos are optional
   if (type === 'found') {
-    for (const [i, q] of questions.entries()) {
+    for (const [i, [q, a]] of questions.entries()) {
       if (i > 0) await page.getByRole('button', { name: '+ Add question' }).click();
       await page.getByLabel(`Question ${i + 1}`).fill(q);
+      await page.getByLabel('Correct answer (private)').nth(i).fill(a);
     }
     await page.getByRole('button', { name: /Continue/ }).click();
   }
