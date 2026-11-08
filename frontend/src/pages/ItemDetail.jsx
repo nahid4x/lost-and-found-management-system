@@ -4,6 +4,8 @@ import { Glass, Button, Chip, Modal, Field, Skeleton, Empty, Reveal } from '../c
 import { Gallery } from '../components/Gallery.jsx';
 import { Dropzone } from '../components/Dropzone.jsx';
 import { MatchRing, Timeline } from '../components/ItemParts.jsx';
+import { VerificationEditor } from '../components/VerificationEditor.jsx';
+import { validateEntries, toPayload, emptyEntry } from '../lib/verification.js';
 import { ApproxMap } from '../components/maps.jsx';
 import { useAuth } from '../context/Auth.jsx';
 import { useToast } from '../context/Toast.jsx';
@@ -13,40 +15,97 @@ import { catLabel, catEmoji, fmtDate, timeAgo, errMsg } from '../lib/util.js';
 function ClaimModal({ item, open, onClose }) {
   const toast = useToast();
   const nav = useNavigate();
-  const [qs, setQs] = useState(null);
+  const [form, setForm] = useState(null); // { questions, verification:[{id,type}], requiresMessage }
   const [answers, setAnswers] = useState([]);
+  const [message, setMessage] = useState('');
   const [proofs, setProofs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
     if (!open) return;
-    setQs(null); setError('');
-    api.get(`/claims/questions/${item.id}`).then((d) => { setQs(d.questions); setAnswers(d.questions.map(() => '')); }).catch((e) => setError(errMsg(e)));
+    setForm(null); setError('');
+    api.get(`/claims/questions/${item.id}`).then((d) => { setForm(d); setAnswers(d.questions.map(() => '')); }).catch((e) => setError(errMsg(e)));
   }, [open, item.id]);
-  const valid = qs && answers.every((a) => a.trim().length > 0);
+  const hasQuestions = form?.questions?.length > 0;
+  const valid = form && (hasQuestions ? answers.some((a) => a.trim()) : message.trim().length >= 10);
   const submit = async (e) => {
     e.preventDefault(); if (!valid) return;
     setBusy(true); setError('');
     try {
-      const f = new FormData(); f.append('itemId', item.id); f.append('answers', JSON.stringify(answers.map((a) => a.trim())));
+      const f = new FormData(); f.append('itemId', item.id);
+      if (hasQuestions) f.append('answers', JSON.stringify(answers.map((a) => a.trim())));
+      if (message.trim()) f.append('message', message.trim());
       proofs.forEach((p) => f.append('proofs', p));
       await api.upload('/claims/', f);
-      toast.success('Claim sent. The finder will review your answers.'); onClose(); nav('/claims');
+      toast.success('Submitted. The finder will review your answers.'); onClose(); nav('/claims');
     } catch (err) { setError(errMsg(err)); } finally { setBusy(false); }
   };
   return (
-    <Modal open={open} onClose={onClose} title="Claim this item" wide>
-      {!qs && !error && <Skeleton h={160} />}
+    <Modal open={open} onClose={onClose} title="Verify ownership" wide>
+      {!form && !error && <Skeleton h={160} />}
       {error && <p className="err" role="alert">{error}</p>}
-      {qs && (
+      {form && (
         <form className="col" onSubmit={submit}>
-          <p className="muted">Answer the finder’s private questions. Only they will see your answers. A wrong answer is not revealed, so please answer carefully.</p>
-          {qs.map((q, i) => <Field key={i} as="textarea" label={q} value={answers[i]} maxLength={500} required onChange={(e) => setAnswers((a) => a.map((x, k) => (k === i ? e.target.value : x)))} />)}
+          <p className="muted">{hasQuestions ? 'Answer the finder’s private questions. Only the finder sees your answers, and you submit them once, so answer carefully. You will not be shown whether they were right.' : 'The finder did not set private questions. Explain why this item is yours, with details only the owner would know.'}</p>
+          {hasQuestions && <p className="hint">Leave a question blank if you do not know it: blank answers count as unanswered and can never raise your match.</p>}
+          {form.questions.map((q, i) => (
+            <Field key={i} as={form.verification?.[i]?.type === 'number' ? 'input' : 'textarea'} label={q} value={answers[i] ?? ''} maxLength={500} autoComplete="off"
+              inputMode={form.verification?.[i]?.type === 'number' ? 'decimal' : undefined} hint={form.verification?.[i]?.type === 'number' ? 'Enter a number, e.g. 2500' : undefined}
+              onChange={(e) => setAnswers((a) => a.map((x, k) => (k === i ? e.target.value : x)))} />
+          ))}
+          <Field as="textarea" label={hasQuestions ? 'Anything else that shows it is yours? (optional)' : 'Why is this yours?'} value={message} maxLength={1000} onChange={(e) => setMessage(e.target.value)} hint={hasQuestions ? undefined : `${message.trim().length}/10 characters minimum`} />
           <div><strong>Proof photos (optional)</strong><p className="hint">Receipts, serial numbers, an older photo of the item. Visible only to the finder and stored privately.</p><Dropzone files={proofs} onChange={setProofs} max={3} label="Add proof photos" /></div>
-          <div className="row"><span className="spacer" /><Button type="button" onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!valid}>Submit claim</Button></div>
+          <div className="row"><span className="spacer" /><Button type="button" onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!valid}>Submit for review</Button></div>
         </form>
       )}
     </Modal>
+  );
+}
+
+/** Owner-only: manage the private questions + answers of a found report. Answers load only when asked for. */
+function VerificationPanel({ item, onChanged }) {
+  const toast = useToast();
+  const [shown, setShown] = useState(null); // answers, loaded on demand
+  const [editing, setEditing] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [busy, setBusy] = useState(false);
+  const list = item.verification ?? [];
+  const legacy = !list.length;
+  const locked = item.verificationLocked;
+  const load = () => api.get(`/items/${item.id}/verification`);
+  const reveal = async () => { try { setShown((await load()).verification); } catch (e) { toast.error(errMsg(e)); } };
+  const edit = async () => {
+    try {
+      const d = await load();
+      setEditing(d.verification.length ? d.verification.map((v) => ({ question: v.question, answer: v.answer, type: v.type, weight: v.weight, tolerance: v.tolerance ?? '' })) : [emptyEntry()]);
+      setErrors({});
+    } catch (e) { toast.error(errMsg(e)); }
+  };
+  const save = async () => {
+    const errs = validateEntries(editing);
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+    setBusy(true);
+    try { await api.put(`/items/${item.id}/verification`, { verification: toPayload(editing) }); toast.success('Verification questions saved'); setEditing(null); setShown(null); onChanged?.(); }
+    catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Glass pad>
+      <div className="row"><h3 style={{ margin: 0 }}>🔒 Private verification</h3><span className="spacer" />
+        {!legacy && !shown && <Button size="sm" onClick={reveal}>Show answers</Button>}{shown && <Button size="sm" onClick={() => setShown(null)}>Hide answers</Button>}
+        <Button size="sm" onClick={edit} disabled={locked}>{legacy ? 'Add questions' : 'Edit'}</Button></div>
+      {locked && <p className="hint">Locked: a claim has been submitted, so the questions can no longer change.</p>}
+      {legacy ? <p className="muted small">{item.questions?.length ? 'This report has questions but no stored answers, so claims need manual review. Add answers to get an automatic match score.' : 'No private questions. Add some so you can check claimants more reliably.'}</p> : (
+        <ol className="muted" style={{ paddingLeft: 20 }}>{list.map((q, i) => (
+          <li key={q.id}>{q.question} <span className="faint small">({q.type}, importance {q.weight})</span>
+            {shown && <div style={{ color: 'var(--text)' }}>Answer: <strong>{shown[i]?.answer}</strong></div>}</li>
+        ))}</ol>
+      )}
+      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title="Private verification questions" wide>
+        {editing && <><VerificationEditor entries={editing} onChange={setEditing} category={item.category} errors={errors} />
+          <div className="row" style={{ marginTop: 12 }}><span className="spacer" /><Button onClick={() => setEditing(null)}>Cancel</Button><Button variant="primary" loading={busy} onClick={save}>Save</Button></div></>}
+      </Modal>
+    </Glass>
   );
 }
 
@@ -119,14 +178,15 @@ export default function ItemDetail() {
                 <p className="hint" style={{ marginTop: 8 }}>The exact spot{item.type === 'found' ? ', where the item is held and the finder’s contact' : ''} is only shared with the verified owner.</p></Glass>
             )}
             <div className="row">
-              {canClaim && <Button variant="primary" onClick={() => setClaiming(true)}>🙋 This is mine: claim it</Button>}
+              {canClaim && <Button variant="primary" onClick={() => setClaiming(true)}>🙋 Verify ownership & claim</Button>}
               {!user && item.type === 'found' && <Button variant="primary" onClick={() => nav(`/login?next=/items/${item.id}`)}>Sign in to claim</Button>}
               {item.mine && !['verified', 'returned', 'closed'].includes(item.status) && <Button onClick={close}>Close report</Button>}
               {item.mine && item.type === 'found' && <Link to="/claims" className="btn">Review claims</Link>}
             </div>
           </div>
         </div>
-        
+        {item.mine && item.type === 'found' && <div style={{ marginTop: 20 }}><VerificationPanel item={item} onChanged={load} /></div>}
+        {item.mine && item.type === 'lost' && <div style={{ marginTop: 20 }}><Matches item={item} onChange={load} /></div>}
       </Reveal>
       {canClaim && <ClaimModal item={item} open={claiming} onClose={() => setClaiming(false)} />}
     </div>
