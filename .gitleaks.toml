@@ -1,0 +1,6 @@
+# Extends the default ruleset. Only test directories (obviously fake fixture passwords) are allow-listed.
+[extend]
+useDefault = true
+[allowlist]
+description = "Fake credentials used by unit tests"
+paths = ['''services/[a-z]+/test/''', '''frontend/src/.*\.test\.jsx?''']
