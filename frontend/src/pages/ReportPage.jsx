@@ -3,6 +3,8 @@ import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { Glass, Field, Button, Reveal } from '../components/ui.jsx';
 import { Dropzone } from '../components/Dropzone.jsx';
 import { MapPicker } from '../components/maps.jsx';
+import { VerificationEditor } from '../components/VerificationEditor.jsx';
+import { validateEntries, toPayload, emptyEntry } from '../lib/verification.js';
 import { api } from '../lib/api.js';
 import { CATEGORIES, errMsg, catLabel, fmtDate } from '../lib/util.js';
 import { useToast } from '../context/Toast.jsx';
@@ -22,6 +24,11 @@ export function validateStep(step, d, type) {
     if (!d.pin) e.pin = 'Drop a pin on the map';
     if (d.areaLabel.trim().length < 2) e.areaLabel = 'Name the area (e.g. “Ashulia, Dhaka”)';
   }
+  if (step === 'verification' && type === 'found') {
+    // Optional section: blank rows are ignored, but a half-filled row (question without answer or vice versa) is an error.
+    const errs = validateEntries(d.verification);
+    if (Object.keys(errs).length) e.verification = errs;
+  }
   return e;
 }
 
@@ -29,9 +36,9 @@ export default function ReportPage() {
   const { type } = useParams();
   const nav = useNavigate();
   const toast = useToast();
-  const steps = useMemo(() => ['basics', 'where', 'photos', 'review'], []);
+  const steps = useMemo(() => (type === 'found' ? ['basics', 'where', 'photos', 'verification', 'review'] : ['basics', 'where', 'photos', 'review']), [type]);
   const [i, setI] = useState(0);
-  const [d, setD] = useState({ title: '', description: '', category: '', date: today(), pin: null, areaLabel: '', heldAt: '', contactNote: '', files: [] });
+  const [d, setD] = useState({ title: '', description: '', category: '', date: today(), pin: null, areaLabel: '', heldAt: '', contactNote: '', verification: [emptyEntry()], files: [] });
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
   if (!['lost', 'found'].includes(type)) return <Navigate to="/" replace />;
@@ -48,8 +55,8 @@ export default function ReportPage() {
       if (type === 'found') {
         if (d.heldAt.trim()) f.append('heldAt', d.heldAt.trim());
         if (d.contactNote.trim()) f.append('contactNote', d.contactNote.trim());
-        // Server requires 1-3 verification questions for found items; send one generic default.
-        f.append('questions', JSON.stringify(['Describe one detail of this item that only the real owner would know.']));
+        const payload = toPayload(d.verification);
+        if (payload.length) f.append('verification', JSON.stringify(payload)); // answers travel only over the owner's authenticated request
       }
       d.files.forEach((file) => f.append('images', file));
       const r = await api.upload('/items/', f);
@@ -79,9 +86,10 @@ export default function ReportPage() {
             </>}
           </>}
           {step === 'photos' && <><Dropzone files={d.files} onChange={(files) => setD((x) => ({ ...x, files }))} max={5} /><p className="hint">Photos help matching and verification. Hide anything sensitive (IDs, card numbers).</p></>}
+          {step === 'verification' && <VerificationEditor entries={d.verification} category={d.category} errors={errors.verification ?? {}} onChange={(verification) => setD((x) => ({ ...x, verification }))} />}
           {step === 'review' && <div className="col">
             <h3 style={{ margin: 0 }}>{d.title}</h3><p className="muted" style={{ margin: 0 }}>{catLabel(d.category)} · {fmtDate(d.date)} · {d.areaLabel}</p><p style={{ whiteSpace: 'pre-wrap' }}>{d.description}</p>
-            <p className="faint small">{d.files.length} photo(s). Your exact pin stays private.</p>
+            <p className="faint small">{d.files.length} photo(s){type === 'found' ? ` · ${toPayload(d.verification).length} private verification question(s)` : ''}. Your exact pin stays private.</p>
           </div>}
           <div className="row">{i > 0 && <Button type="button" onClick={() => setI((x) => x - 1)}>← Back</Button>}<span className="spacer" />
             {step !== 'review' ? <Button variant="primary" type="button" onClick={next}>Continue →</Button> : <Button variant="primary" loading={busy} onClick={submit}>Publish report</Button>}</div>
