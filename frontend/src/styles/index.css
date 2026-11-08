@@ -206,3 +206,7 @@ img { max-width: 100%; display: block; }
 .profile-msg.err { border-color: rgba(251, 113, 133, 0.5); background: rgba(251, 113, 133, 0.12); }
 .input[disabled], .textarea[disabled] { opacity: 0.65; cursor: not-allowed; }
 @media (max-width: 600px) { .profile-head { flex-direction: column; align-items: flex-start; } }
+
+.icon-btn svg { opacity: .7; transition: opacity .15s; }
+.icon-btn:hover svg,
+.icon-btn:focus-visible svg { opacity: 1; }

@@ -1,12 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { Glass, Field, Button, Reveal } from '../components/ui.jsx';
+import { PasswordField } from '../components/PasswordField.jsx';
 import { useAuth } from '../context/Auth.jsx';
 import { api, safeNext } from '../lib/api.js';
 import { errMsg, strength, validatePassword } from '../lib/util.js';
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Lowercase only, must contain @ and a valid domain ending (.com, .net, .edu.bd, ...).
+const EMAIL = /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/;
 const OTP_COOLDOWN_S = 60; // matches the backend resend cooldown
+
+// "nahid hasan" -> "Nahid Hasan" (first letter of every word upper case, rest left as typed)
+const titleCase = (s) =>
+  s.trimStart().replace(/\s{2,}/g, ' ').replace(/(^|\s)(\S)/g, (_, sp, ch) => sp + ch.toUpperCase());
+
+// Email is always lower case and never contains spaces.
+const lowerEmail = (s) => s.toLowerCase().replace(/\s/g, '');
 
 function Strength({ pw }) {
   const s = strength(pw);
@@ -30,7 +39,7 @@ export default function AuthPages({ mode }) {
   const [codeInfo, setCodeInfo] = useState('');
   const [sending, setSending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const set = (k, fn = (v) => v) => (e) => setF((x) => ({ ...x, [k]: fn(e.target.value) }));
 
   // Old link flow: only when a token is actually present (no more empty-token calls).
   useEffect(() => {
@@ -72,17 +81,19 @@ export default function AuthPages({ mode }) {
   const submit = async (e) => {
     e.preventDefault();
     const er = {};
-    if (mode !== 'reset' && mode !== 'verify' && !EMAIL.test(f.email)) er.email = 'Enter a valid email';
-    if (mode === 'register' && f.name.trim().length < 2) er.name = 'Enter your name';
+    const email = f.email.trim().toLowerCase();
+    const name = titleCase(f.name.trim()).trim();
+    if (mode !== 'reset' && mode !== 'verify' && !EMAIL.test(email)) er.email = 'Enter a valid email (example: name@gmail.com)';
+    if (mode === 'register' && name.length < 2) er.name = 'Enter your name';
     if (['register', 'reset'].includes(mode)) { const p = validatePassword(f.password); if (p.length) er.password = `Password needs ${p.join(', ')}`; }
     if (mode === 'login' && !f.password) er.password = 'Enter your password';
     setErrors(er); setMsg('');
     if (Object.keys(er).length) return;
     setBusy(true);
     try {
-      if (mode === 'login') { await login(f.email.trim(), f.password); nav(next, { replace: true }); }
-      else if (mode === 'register') { await register(f.name.trim(), f.email.trim(), f.password); nav(next, { replace: true }); }
-      else if (mode === 'forgot') { await api.post('/auth/password/forgot', { email: f.email.trim() }); setState('sent'); }
+      if (mode === 'login') { await login(email, f.password); nav(next, { replace: true }); }
+      else if (mode === 'register') { await register(name, email, f.password); nav(next, { replace: true }); }
+      else if (mode === 'forgot') { await api.post('/auth/password/forgot', { email }); setState('sent'); }
       else if (mode === 'reset') { await api.post('/auth/password/reset', { token, password: f.password }); setState('ok'); }
     } catch (err) { setMsg(mode === 'login' ? 'Invalid email or password' : errMsg(err)); } finally { setBusy(false); }
   };
@@ -130,9 +141,9 @@ export default function AuthPages({ mode }) {
           <p>✅ Password updated. <Link to="/login">Sign in</Link></p>
         ) : (
           <form className="col" onSubmit={submit} noValidate>
-            {mode === 'register' && <Field label="Full name" autoComplete="name" value={f.name} onChange={set('name')} error={errors.name} maxLength={60} />}
-            {mode !== 'reset' && <Field label="Email" type="email" autoComplete="email" value={f.email} onChange={set('email')} error={errors.email} maxLength={254} />}
-            {mode !== 'forgot' && <Field label={mode === 'reset' ? 'New password' : 'Password'} type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={f.password} onChange={set('password')} error={errors.password} maxLength={128} />}
+            {mode === 'register' && <Field label="Full name" autoComplete="name" autoCapitalize="words" value={f.name} onChange={set('name', titleCase)} error={errors.name} maxLength={60} />}
+            {mode !== 'reset' && <Field label="Email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} value={f.email} onChange={set('email', lowerEmail)} error={errors.email} maxLength={254} />}
+            {mode !== 'forgot' && <PasswordField label={mode === 'reset' ? 'New password' : 'Password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={f.password} onChange={set('password')} error={errors.password} maxLength={128} />}
             {['register', 'reset'].includes(mode) && <Strength pw={f.password} />}
             {msg && <p className="err" role="alert">{msg}</p>}
             <Button variant="primary" loading={busy}>{{ login: 'Sign in', register: 'Create account', forgot: 'Send reset link', reset: 'Update password' }[mode]}</Button>
