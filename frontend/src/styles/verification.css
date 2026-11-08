@@ -1,0 +1,6 @@
+/* ---------- ownership verification ---------- */
+.vcard { border-left: 4px solid var(--border-strong); margin: 10px 0; }
+.vcard.lvl-high { border-left-color: var(--green); } .vcard.lvl-medium { border-left-color: var(--amber); } .vcard.lvl-low { border-left-color: var(--red); }
+.lvl-chip.high { color: #86efac; border-color: rgba(74, 222, 128, 0.5); } .lvl-chip.medium { color: #fcd34d; border-color: rgba(251, 191, 36, 0.5); } .lvl-chip.low { color: #fda4af; border-color: rgba(251, 113, 133, 0.5); }
+.vres { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-weight: 800; background: var(--glass-3); }
+.vres.match { background: rgba(74, 222, 128, 0.25); color: #86efac; } .vres.approx { background: rgba(251, 191, 36, 0.25); color: #fcd34d; } .vres.no_match { background: rgba(251, 113, 133, 0.25); color: #fda4af; }
