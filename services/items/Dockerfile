@@ -23,6 +23,7 @@ COPY --chown=node:node package.json ./
 COPY --chown=node:node shared ./shared
 COPY --chown=node:node items ./items
 RUN rm -rf /app/items/test /app/items/Dockerfile
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /opt/yarn* /usr/local/bin/yarn*
 USER node
 WORKDIR /app/items
 EXPOSE 4002
