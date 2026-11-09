@@ -57,7 +57,7 @@ export default function App() {
                 </Routes>
               </Suspense>
             </main>
-            <footer className="footer">FindIt · Lost &amp; found, together. Map © OpenStreetMap contributors</footer>
+            <footer className="footer">Every lost item has a story. Let's bring it home. · © {new Date().getFullYear()} FindIt</footer>
           </CallProvider>
         </LiveProvider>
       </AuthProvider>
