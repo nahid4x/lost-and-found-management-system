@@ -16,6 +16,8 @@ COPY notify/package.json notify/
 RUN npm ci --omit=dev -w shared -w realtime && npm cache clean --force
 
 FROM ${NODE_IMAGE}
+USER root
+RUN apk upgrade --no-cache
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules
