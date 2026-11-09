@@ -23,6 +23,7 @@ COPY --chown=node:node package.json ./
 COPY --chown=node:node shared ./shared
 COPY --chown=node:node claims ./claims
 RUN rm -rf /app/claims/test /app/claims/Dockerfile
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /opt/yarn* /usr/local/bin/yarn*
 USER node
 WORKDIR /app/claims
 EXPOSE 4004
