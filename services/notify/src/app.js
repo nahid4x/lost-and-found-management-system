@@ -105,6 +105,20 @@ export function createNotifyApp({ env, logger, bus, redis = null, mailer, isOnli
       });
       try { await mailer.send({ to: p.email, subject: verify ? 'Confirm your FindIt email' : 'Reset your FindIt password', ...mail }); } catch (err) { logger.error('auth email failed', { err }); }
     });
+        // 6-digit email verification / email-change code. The code is only in the body, never in the subject (the mailer logs the subject).
+    await bus.on('auth.email_otp', async (p) => {
+      const change = p.purpose === 'email_change';
+      const mail = renderEmail({
+        heading: change ? 'Confirm your new email' : 'Confirm your email',
+        lines: [
+          `Hi ${p.name},`,
+          change ? 'Use this code to confirm your new email address on FindIt:' : 'Use this code to finish setting up FindIt:',
+          String(p.code),
+          `The code works once and expires in ${p.ttlMinutes ?? 5} minutes. If you did not ask for it, ignore this email.`,
+        ],
+      });
+      try { await mailer.send({ to: p.email, subject: change ? 'Your FindIt email change code' : 'Your FindIt verification code', ...mail }); } catch (err) { logger.error('otp email failed', { err: err.message }); }
+    });
   };
   app.locals.wire = wire;
   return finish();
