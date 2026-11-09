@@ -25,6 +25,7 @@ export function viewFor(i, viewer) {
   }
   if (isOwner || isAdmin) {
     if (i.questions) base.questions = i.questions;
+    if (i.verificationMeta?.length) { base.verification = i.verificationMeta.map((m) => ({ id: m.id, question: m.question, type: m.type, weight: m.weight })); base.verificationLocked = (i.claimsCount ?? 0) > 0; }
     base.history = i.history;
     base.hidden = i.hidden;
     base.approvedClaimant = i.approvedClaimant;
@@ -36,4 +37,5 @@ export const eventPayload = (i) => ({
   id: String(i._id), type: i.type, title: i.title, description: i.description, category: i.category,
   date: i.date, areaLabel: i.areaLabel, location: { lng: i.location.coordinates[0], lat: i.location.coordinates[1] },
   owner: i.owner, ownerName: i.ownerName, status: i.status, questions: i.questions ?? null,
+  verification: i.verificationMeta?.length ? i.verificationMeta.map((m) => ({ id: m.id, question: m.question, type: m.type, weight: m.weight })) : null, // never includes answers
 });

@@ -9,7 +9,7 @@ import { mongoose, connectMongo } from '@findit/shared/db';
 import { signAccess } from '@findit/shared/tokens';
 import { createItemsApp } from '../src/app.js';
 import { buildFilter, searchSchema } from '../src/search.js';
-import { Item } from '../src/models.js';
+import { Item, ItemSecret } from '../src/models.js';
 
 const env = loadEnv({ MONGO_URL: z.string().default('mongodb://127.0.0.1:27017/findit_test_items') });
 const logger = createLogger('t', 'silent');
@@ -60,7 +60,7 @@ describe('creating reports', () => {
   });
   it('blocks mass assignment and bad input', async () => {
     for (const extra of [{ status: 'returned' }, { owner: B }, { role: 'admin' }, { score: '100' }]) expect((await post(tok(A), extra)).status).toBe(400);
-    expect((await post(tok(A), { questions: undefined })).status).toBe(400); // found needs questions
+    expect((await post(tok(A), { questions: undefined })).status).toBe(201); // verification questions are optional
     expect((await post(tok(A), { type: 'lost', questions: undefined, heldAt: undefined })).status).toBe(201);
     expect((await post(tok(A), { lat: '999' })).status).toBe(400);
     expect((await post(tok(A), { title: 'x' })).status).toBe(400);
@@ -199,5 +199,100 @@ describe('owner actions, public feeds and matching proxy', () => {
     expect((await request(app).delete(`/admin/items/${id}`).set(adm)).status).toBe(204);
     expect(bus.published.some((e) => e.type === 'item.deleted' && e.payload.id === id)).toBe(true);
     expect((await request(app).get(`/${id}`)).status).toBe(404);
+  });
+});
+
+describe('private verification (protected answers)', () => {
+  const SECRET = 'ZEBRA-4821';
+  const entries = [
+    { question: 'How much money was inside?', answer: '2500', type: 'number', weight: 3 },
+    { question: 'What is written on the keychain?', answer: SECRET, type: 'text', weight: 2 },
+    { question: 'Describe the interior', answer: 'red lining with a torn corner', type: 'descriptive' },
+  ];
+  const create = (who = tok(A), list = entries, extra = {}) => post(who, { questions: undefined, verification: JSON.stringify(list), ...extra });
+  const dump = (r) => JSON.stringify(r.body) + JSON.stringify(r.headers);
+
+  it('creates questions + answers; answers are stored in a separate collection, never on the item', async () => {
+    const r = await create();
+    expect(r.status).toBe(201);
+    const id = r.body.item.id;
+    expect(r.body.item.verification.map((v) => v.question)).toEqual(entries.map((e) => e.question));
+    expect(r.body.item.verification[0]).toMatchObject({ type: 'number', weight: 3 });
+    expect(dump(r)).not.toContain(SECRET); expect(dump(r)).not.toContain('2500'); expect(dump(r)).not.toContain('torn corner');
+    const raw = JSON.stringify((await Item.findById(id)).toObject());
+    expect(raw).not.toContain(SECRET);
+    expect((await ItemSecret.findOne({ itemId: id })).entries).toHaveLength(3);
+  });
+
+  it('the answer text never appears in ANY response for ANY role, nor in published events', async () => {
+    const id = (await create()).body.item.id;
+    await bus.publish('claim.approved', { itemId: id, claimant: B, finder: A });
+    const seen = [
+      await request(app).get(`/${id}`), await request(app).get(`/${id}`).set(tok(A)), await request(app).get(`/${id}`).set(tok(B)),
+      await request(app).get(`/${id}`).set(tok(ADMIN, 'Root', 'admin')), await request(app).get('/'), await request(app).get('/map'),
+      await request(app).get('/mine').set(tok(A)), await request(app).get('/admin/items').set(tok(ADMIN, 'Root', 'admin')),
+    ];
+    for (const r of seen) { expect(r.status).toBe(200); expect(dump(r)).not.toMatch(/ZEBRA|2500|torn corner/); }
+    expect(JSON.stringify(bus.published)).not.toMatch(/ZEBRA|2500|torn corner/);
+    expect(bus.published.find((e) => e.type === 'item.created').payload.verification).toHaveLength(3);
+  });
+
+  it('only the owner can read the answers back; other users, admins and anonymous callers cannot', async () => {
+    const id = (await create()).body.item.id;
+    const own = await request(app).get(`/${id}/verification`).set(tok(A));
+    expect(own.status).toBe(200);
+    expect(own.body.verification.find((v) => v.answer === SECRET)).toBeTruthy();
+    expect(own.body.locked).toBe(false);
+    expect((await request(app).get(`/${id}/verification`)).status).toBe(401);
+    expect((await request(app).get(`/${id}/verification`).set(tok(B))).status).toBe(404);
+    expect((await request(app).get(`/${id}/verification`).set(tok(ADMIN, 'Root', 'admin'))).status).toBe(404);
+    expect((await request(app).put(`/${id}/verification`).set(tok(B)).send({ verification: [] })).status).toBe(404);
+  });
+
+  it('validates input: numeric answers, duplicates, limits, unknown fields; lost items cannot carry questions', async () => {
+    expect((await create(tok(A), [{ question: 'How many notes?', answer: 'five', type: 'number' }])).status).toBe(400);
+    expect((await create(tok(A), [{ question: 'Same question', answer: 'a' }, { question: 'same QUESTION', answer: 'b' }])).status).toBe(400);
+    expect((await create(tok(A), Array.from({ length: 11 }, (_, i) => ({ question: `Question number ${i}`, answer: 'x' })))).status).toBe(400);
+    expect((await create(tok(A), [{ question: 'Weighted question', answer: 'x', weight: 9 }])).status).toBe(400);
+    expect((await create(tok(A), [{ question: 'Sneaky question', answer: 'x', correct: true }])).status).toBe(400);
+    expect((await create(tok(A), [{ question: 'Text tolerance', answer: 'x', tolerance: 5 }])).status).toBe(400);
+    expect((await create(tok(A), [{ question: 'Tolerance ok', answer: '100', type: 'number', tolerance: 10 }])).status).toBe(201);
+    expect((await post(tok(A), { type: 'lost', questions: undefined, heldAt: undefined, verification: JSON.stringify(entries) })).status).toBe(400);
+    expect((await post(tok(A), { verification: JSON.stringify(entries) })).status).toBe(400); // questions AND verification
+    expect((await post(tok(A), { claimsCount: '5' })).status).toBe(400); // mass assignment
+  });
+
+  it('owner can replace the questions until the first claim; then they are locked', async () => {
+    const id = (await create()).body.item.id;
+    const put = await request(app).put(`/${id}/verification`).set(tok(A)).send({ verification: [{ question: 'New question here', answer: 'blue' }] });
+    expect(put.status).toBe(200);
+    expect((await Item.findById(id)).questions).toEqual(['New question here']);
+    expect((await ItemSecret.findOne({ itemId: id })).entries).toHaveLength(1);
+    expect(JSON.stringify(bus.published.filter((e) => e.type === 'item.updated'))).not.toContain('blue');
+    await bus.publish('claim.created', { itemId: id, claimant: B });
+    expect((await request(app).put(`/${id}/verification`).set(tok(A)).send({ verification: [{ question: 'Changed after claim', answer: 'x' }] })).status).toBe(409);
+    expect((await request(app).get(`/${id}/verification`).set(tok(A))).body.locked).toBe(true);
+    expect((await request(app).get(`/${id}`).set(tok(A))).body.item.verificationLocked).toBe(true);
+  });
+
+  it('internal scoring endpoint needs the service token and is not reachable with a user token', async () => {
+    const id = (await create()).body.item.id;
+    expect((await request(app).get(`/internal/items/${id}/verification`)).status).toBe(403);
+    expect((await request(app).get(`/internal/items/${id}/verification`).set(tok(A))).status).toBe(403);
+    const ok = await request(app).get(`/internal/items/${id}/verification`).set('x-internal-token', env.INTERNAL_SERVICE_TOKEN);
+    expect(ok.status).toBe(200);
+    expect(ok.body.entries.map((e) => e.answer)).toContain(SECRET);
+    expect(ok.body.owner).toBe(A);
+  });
+
+  it('legacy reports (questions only, no answers) and admin delete keep working', async () => {
+    const legacy = (await post(tok(A))).body.item;
+    expect(legacy.questions).toHaveLength(1);
+    const i = await Item.findById(legacy.id);
+    expect(i.verificationMeta).toBeUndefined();
+    expect((await request(app).get(`/internal/items/${legacy.id}/verification`).set('x-internal-token', env.INTERNAL_SERVICE_TOKEN)).body.entries).toEqual([]);
+    const id = (await create()).body.item.id;
+    expect((await request(app).delete(`/admin/items/${id}`).set(tok(ADMIN, 'Root', 'admin'))).status).toBe(204);
+    expect(await ItemSecret.countDocuments({ itemId: id })).toBe(0);
   });
 });
