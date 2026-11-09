@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { api, setToken, getToken, safeNext, qs, ApiError } from './api.js';
 
-const res = (status, body) => ({ ok: status < 400, status, json: async () => body, text: async () => (body === undefined ? '' : JSON.stringify(body)) });
+const res = (status, body, headers = {}) => ({ ok: status < 400, status, headers: { get: (k) => headers[k] ?? null }, json: async () => body, text: async () => (body === undefined ? '' : JSON.stringify(body)) });
 
 describe('api client', () => {
   beforeEach(() => { setToken(null); vi.restoreAllMocks(); localStorage.clear(); });
