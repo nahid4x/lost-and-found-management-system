@@ -34,12 +34,13 @@ describe('components', () => {
     expect(screen.getByRole('button', { name: /save/i })).toBeDisabled();
   });
   it('report wizard validation mirrors server rules', () => {
-    const d = { title: 'ab', description: 'short', category: '', date: '2999-01-01', pin: null, areaLabel: '', questions: [''] };
+    const d = { title: 'ab', description: 'short', category: '', date: '2999-01-01', pin: null, areaLabel: '', verification: [{ question: 'What is inside?', answer: '' }] };
     expect(Object.keys(validateStep('basics', d, 'lost')).sort()).toEqual(['category', 'date', 'description', 'title']);
     expect(Object.keys(validateStep('where', d, 'lost')).sort()).toEqual(['areaLabel', 'pin']);
-    expect(validateStep('questions', d, 'found').questions).toBeTruthy();
-    expect(validateStep('questions', d, 'lost')).toEqual({});
-    const ok = { title: 'Black wallet', description: 'Leather with a scratch on it', category: 'wallet', date: '2026-01-01', pin: { lat: 1, lng: 1 }, areaLabel: 'Dhaka', questions: ['What is inside?'] };
-    for (const s of ['basics', 'where', 'questions']) expect(validateStep(s, ok, 'found')).toEqual({});
+    expect(validateStep('verification', d, 'found').verification).toBeTruthy(); // half-filled row is an error
+    expect(validateStep('verification', d, 'lost')).toEqual({});
+    const ok = { title: 'Black wallet', description: 'Leather with a scratch on it', category: 'wallet', date: '2026-01-01', pin: { lat: 1, lng: 1 }, areaLabel: 'Dhaka', verification: [] };
+    for (const s of ['basics', 'where', 'verification']) expect(validateStep(s, ok, 'found')).toEqual({});
   });
-});
+  });
+
