@@ -75,7 +75,16 @@ describe('event -> notification -> push -> email', () => {
     expect(renderEmail({ heading: '<img onerror=1>', lines: ['"><script>'] }).html).not.toMatch(/<img|<script/);
   });
 });
-
+  it('auth email otp mails carry the code in the body (not the subject) with escaped content', async () => {
+    await bus.publish('auth.email_otp', { email: 'x@example.com', name: '<b>Eve</b>', code: '123456', ttlMinutes: 5 });
+    expect(mails[0].html).toContain('123456');
+    expect(mails[0].html).toContain('&lt;b&gt;Eve&lt;/b&gt;');
+    expect(mails[0].html).not.toContain('<b>Eve</b>');
+    expect(mails[0].subject).not.toContain('123456');
+    await bus.publish('auth.email_otp', { email: 'new@example.com', name: 'Eve', code: '654321', ttlMinutes: 5, purpose: 'email_change' });
+    expect(mails[1].html).toContain('654321');
+    expect(mails[1].html).toContain('new email');
+  });
 describe('REST + authorization', () => {
   beforeEach(async () => { await bus.publish('match.created', match); });
   it('lists only my notifications, unread counter, paginates', async () => {
