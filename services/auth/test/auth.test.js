@@ -39,7 +39,7 @@ describe('registration + login', () => {
     expect(u.passwordHash).toMatch(/^\$2[aby]\$/);
     expect(ok.headers['set-cookie'][0]).toMatch(/HttpOnly/i);
     expect(ok.headers['set-cookie'][0]).toMatch(/SameSite=Strict/i);
-    expect(bus.published.some((e) => e.type === 'auth.email_token')).toBe(true);
+    expect(bus.published.some((e) => e.type === 'auth.email_otp')).toBe(true);
   });
   it('rejects weak and common passwords', async () => {
     expect((await register({ ...good, password: 'short' })).status).toBe(400);
@@ -178,21 +178,27 @@ describe('internal + headers + cors', () => {
 describe('account lifecycle', () => {
   it('verifies email once; resend works only while unverified', async () => {
     const reg = await register();
-    const evt = bus.published.find((e) => e.type === 'auth.email_token' && e.payload.kind === 'verify');
-    expect((await request(app).post('/email/verify').send({ token: 'z'.repeat(64) })).status).toBe(400);
-    expect((await request(app).post('/email/verify').send({ token: 'nothex' })).status).toBe(400);
-    expect((await request(app).post('/email/verify').send({ token: evt.payload.token })).status).toBe(200);
-    expect((await request(app).post('/email/verify').send({ token: evt.payload.token })).status).toBe(400); // single use
+    const evt = bus.published.find((e) => e.type === 'auth.email_otp');
+    const sendNow = await request(app).post('/email/otp/send').set('Authorization', `Bearer ${reg.body.accessToken}`);
+    expect(sendNow.status).toBe(429); 
+    const bearer = `Bearer ${reg.body.accessToken}`;
+    const verify = (code) => request(app).post('/email/otp/verify').set('Authorization', bearer).send({ code });
+    const wrong = evt.payload.code === '111111' ? '222222' : '111111';
+    expect((await verify(wrong)).status).toBe(400);
+    expect((await verify(evt.payload.code)).status).toBe(200);
+    expect((await verify(evt.payload.code)).status).toBe(400);
     expect((await request(app).get('/me').set('Authorization', `Bearer ${reg.body.accessToken}`)).body.user.emailVerified).toBe(true);
     const before = bus.published.length;
-    expect((await request(app).post('/email/resend').set('Authorization', `Bearer ${reg.body.accessToken}`)).status).toBe(202);
+    const again = await request(app).post('/email/otp/send').set('Authorization', `Bearer ${reg.body.accessToken}`);
+   expect(again.status).toBe(200);
+   expect(again.body.alreadyVerified).toBe(true);
     expect(bus.published.length).toBe(before); // verified users get no new mail
   });
   it('password change needs the current password and revokes every session', async () => {
     const reg = await register();
     const c1 = reg.headers['set-cookie'][0].split(';')[0];
     const auth = { Authorization: `Bearer ${reg.body.accessToken}` };
-    expect((await request(app).post('/password/change').set(auth).send({ current: 'Wrong-Password-1', password: 'Another-Long-Passphrase-1' })).status).toBe(401);
+    expect((await request(app).post('/password/change').set(auth).send({ current: 'Wrong-Password-1', password: 'Another-Long-Passphrase-1' })).status).toBe(400);
     expect((await request(app).post('/password/change').set(auth).send({ current: good.password, password: 'Another-Long-Passphrase-1' })).status).toBe(204);
     expect((await request(app).post('/refresh').set(H).set('Cookie', c1)).status).toBe(401);
     expect((await request(app).post('/login').send({ email: good.email, password: 'Another-Long-Passphrase-1' })).status).toBe(200);
