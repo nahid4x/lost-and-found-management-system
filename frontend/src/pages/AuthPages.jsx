@@ -141,9 +141,9 @@ export default function AuthPages({ mode }) {
           <p>✅ Password updated. <Link to="/login">Sign in</Link></p>
         ) : (
           <form className="col" onSubmit={submit} noValidate>
-            {mode === 'register' && <Field label="Full name" autoComplete="name" autoCapitalize="words" value={f.name} onChange={set('name', titleCase)} error={errors.name} maxLength={60} />}
-            {mode !== 'reset' && <Field label="Email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false} value={f.email} onChange={set('email', lowerEmail)} error={errors.email} maxLength={254} />}
-            {mode !== 'forgot' && <PasswordField label={mode === 'reset' ? 'New password' : 'Password'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={f.password} onChange={set('password')} error={errors.password} maxLength={128} />}
+            {mode === 'register' && <Field label="Full name" name="name" autoComplete="name" autoCapitalize="words" value={f.name} onChange={set('name', titleCase)} error={errors.name} maxLength={60} />}
+            {mode !== 'reset' && <Field label="Email" type="email" name="email" autoComplete={mode === 'forgot' ? 'email' : 'username'} autoCapitalize="none" spellCheck={false} value={f.email} onChange={set('email', lowerEmail)} error={errors.email} maxLength={254} />}
+            {mode !== 'forgot' && <PasswordField label={mode === 'reset' ? 'New password' : 'Password'} name="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={f.password} onChange={set('password')} error={errors.password} maxLength={128} />}
             {['register', 'reset'].includes(mode) && <Strength pw={f.password} />}
             {msg && <p className="err" role="alert">{msg}</p>}
             <Button variant="primary" loading={busy}>{{ login: 'Sign in', register: 'Create account', forgot: 'Send reset link', reset: 'Update password' }[mode]}</Button>
