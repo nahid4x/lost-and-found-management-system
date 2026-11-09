@@ -28,10 +28,14 @@ export function CallProvider({ children }) {
     if (message) toast.info(message);
   }, [cleanup, toast]);
 
-  const prepare = useCallback(async (callId, callType) => {
-    let stream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: callType === 'video' }); }
+  // Asks the browser for the microphone/camera. Called BEFORE we ring the other person, so a denied permission never makes their phone ring.
+  const getMedia = useCallback(async (callType) => {
+    try { return await navigator.mediaDevices.getUserMedia({ audio: true, video: callType === 'video' }); }
     catch { throw new Error('Microphone/camera permission was denied. Allow access in your browser and try again.'); }
+  }, []);
+
+  const prepare = useCallback(async (callId, callType, ready) => {
+    const stream = ready ?? (await getMedia(callType));
     local.current = stream; setLocalStream(stream);
     const { iceServers } = await api.get('/realtime/calls/ice');
     const conn = new RTCPeerConnection({ iceServers });
@@ -45,15 +49,22 @@ export function CallProvider({ children }) {
       if (st === 'failed') finish('Call connection failed');
     };
     return conn;
-  }, [socket, finish]);
+  }, [socket, finish, getMedia]);
 
   const start = useCallback(async (conversation, callType = 'audio') => {
     if (!socket || callRef.current) return;
+    let stream;
+    try { stream = await getMedia(callType); } catch (e) { toast.error(e.message); return; } // no permission: stop here, nobody is rung
     const ack = await emit(socket, 'call:invite', { conversationId: conversation.id, callType });
-    if (ack.error) { toast.error(ack.error === 'offline' ? `${conversation.other.name} is offline right now.` : ack.error === 'busy' ? 'A call is already in progress.' : 'Could not start the call.'); return; }
-    setCall({ phase: 'calling', callId: ack.callId, peer: conversation.other, callType, conversationId: conversation.id });
-    try { await prepare(ack.callId, callType); } catch (e) { socket.emit('call:end', { callId: ack.callId }, () => {}); finish(); toast.error(e.message); }
-  }, [socket, prepare, finish, toast]);
+    if (ack.error) {
+      stream.getTracks().forEach((t) => t.stop());
+      toast.error(ack.error === 'offline' ? `${conversation.other.name} is offline right now.` : ack.error === 'busy' ? 'A call is already in progress.' : 'Could not start the call.');
+      return;
+    }
+    const next = { phase: 'calling', callId: ack.callId, peer: conversation.other, callType, conversationId: conversation.id };
+    callRef.current = next; setCall(next);
+    try { await prepare(ack.callId, callType, stream); } catch (e) { callRef.current = null; socket.emit('call:end', { callId: ack.callId }, () => {}); finish(); toast.error(e.message); }
+  }, [socket, prepare, finish, toast, getMedia]);
 
   const accept = useCallback(async () => {
     const c = callRef.current; if (!c) return;
@@ -67,14 +78,22 @@ export function CallProvider({ children }) {
 
   const hangup = useCallback(() => {
     const c = callRef.current; if (!c) return;
+    callRef.current = null; // ignore the "missed"/"ended" echo caused by my own hang-up
     socket.emit(c.phase === 'ringing' ? 'call:reject' : 'call:end', { callId: c.callId }, () => {});
     finish();
   }, [socket, finish]);
 
+  // End screen helpers (shown to the caller after "No answer" / "Call declined").
+  const dismiss = useCallback(() => { callRef.current = null; setCall(null); }, []);
+  const callAgain = useCallback(() => {
+    const c = callRef.current; if (!c) return;
+    callRef.current = null; setCall(null);
+    start({ id: c.conversationId, other: c.peer }, c.callType);
+  }, [start]);
+
   const toggleMute = () => { local.current?.getAudioTracks().forEach((t) => { t.enabled = !t.enabled; }); setCall((c) => ({ ...c, muted: !c.muted })); };
   const toggleCam = () => { local.current?.getVideoTracks().forEach((t) => { t.enabled = !t.enabled; }); setCall((c) => ({ ...c, camOff: !c.camOff })); };
-
-  useEffect(() => {
+    useEffect(() => {
     if (!socket) return undefined;
     const flush = async () => { for (const c of pendingIce.current.splice(0)) await pc.current?.addIceCandidate(c).catch(() => {}); };
     const h = {
@@ -93,18 +112,23 @@ export function CallProvider({ children }) {
       'call:answer': async ({ data }) => { if (pc.current) { await pc.current.setRemoteDescription(data); await flush(); } },
       'call:ice': async ({ data }) => { if (pc.current?.remoteDescription) await pc.current.addIceCandidate(data).catch(() => {}); else pendingIce.current.push(data); },
       'call:ended': () => finish('Call ended'),
-      'call:rejected': () => finish('Call declined'),
-      'call:missed': () => finish('No answer'),
+      // The caller gets a proper end screen with "Call again"; the person being called just gets a short note.
+      'call:rejected': () => { const c = callRef.current; if (!c) return; cleanup(); const e = { ...c, phase: 'ended', outcome: 'declined' }; callRef.current = e; setCall(e); },
+      'call:missed': () => {
+        const c = callRef.current; if (!c) return;
+        if (c.phase === 'calling') { cleanup(); const e = { ...c, phase: 'ended', outcome: 'noanswer' }; callRef.current = e; setCall(e); }
+        else finish('Missed call');
+      },
     };
     for (const [ev, fn] of Object.entries(h)) socket.on(ev, fn);
     return () => { for (const [ev, fn] of Object.entries(h)) socket.off(ev, fn); };
-  }, [socket, finish]);
+  }, [socket, finish, cleanup]);
 
   const value = useMemo(() => ({ start, busy: Boolean(call) }), [start, call]);
   return (
     <Ctx.Provider value={value}>
       {children}
-      {call && <CallOverlay call={call} remote={remoteStream} localStream={localStream} onAccept={accept} onHangup={hangup} onMute={toggleMute} onCam={toggleCam} />}
+      {call && <CallOverlay call={call} remote={remoteStream} localStream={localStream} onAccept={accept} onHangup={hangup} onMute={toggleMute} onCam={toggleCam} onDismiss={dismiss} onAgain={callAgain} />}
     </Ctx.Provider>
   );
 }
@@ -148,32 +172,89 @@ function useRingtone(active) {
   }, [active]);
 }
 
-function CallOverlay({ call, remote, localStream, onAccept, onHangup, onMute, onCam }) {
+const fmtTime = (t) => {
+  const h = Math.floor(t / 3600); const m = String(Math.floor((t % 3600) / 60)).padStart(2, '0'); const sec = String(t % 60).padStart(2, '0');
+  return h ? `${h}:${m}:${sec}` : `${m}:${sec}`;
+};
+
+/** Seconds since the call became active (0 until then). */
+function useCallTimer(active) {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    if (!active) { setSecs(0); return undefined; }
+    const t0 = Date.now();
+    const id = setInterval(() => setSecs(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  return secs;
+}
+// WhatsApp-style round call buttons with clean line icons (no emoji).
+const Svg = ({ children, fill }) => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill={fill ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
+);
+const PHONE = 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z';
+const IcoPhone = () => <Svg fill><path d={PHONE} /></Svg>;
+const IcoHangup = () => <span style={{ display: 'inline-flex', transform: 'rotate(135deg)' }}><Svg fill><path d={PHONE} /></Svg></span>;
+const IcoMic = ({ off }) => <Svg><rect x="9" y="2.5" width="6" height="12" rx="3" fill="currentColor" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />{off && <path d="M4 4l16 16" />}</Svg>;
+const IcoCam = ({ off }) => <Svg><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h7A2.5 2.5 0 0 1 15 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 3 16.5z" /><path d="M15 10l6-3.5v11L15 14" />{off && <path d="M4 4l16 16" />}</Svg>;
+const IcoClose = () => <Svg><path d="M6 6l12 12M18 6L6 18" /></Svg>;
+
+const GLASS = 'rgba(255,255,255,0.16)';
+function Round({ label, caption, onClick, bg = GLASS, color = '#fff', pressed, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+      <button type="button" onClick={onClick} aria-label={label} aria-pressed={pressed}
+        style={{ width: 64, height: 64, borderRadius: '50%', border: 0, cursor: 'pointer', display: 'grid', placeItems: 'center', background: bg, color, transition: 'transform .12s' }}>
+        {children}
+      </button>
+      <span style={{ fontSize: 12, opacity: 0.85 }}>{caption}</span>
+    </div>
+  );
+}
+
+const GREEN = '#25d366'; const RED = '#ef4444';
+
+function CallOverlay({ call, remote, localStream, onAccept, onHangup, onMute, onCam, onDismiss, onAgain }) {
   const video = call.callType === 'video';
+  const ended = call.phase === 'ended';
   useRingtone(call.phase === 'calling' || call.phase === 'ringing');
-  const label = { calling: 'Calling…', ringing: 'Incoming call', connecting: 'Connecting…', active: call.reconnecting ? 'Reconnecting…' : 'Connected' }[call.phase];
+  const secs = useCallTimer(call.phase === 'active'); // call length once connected
+  const label = ended
+    ? (call.outcome === 'declined' ? 'Call declined' : 'No answer')
+    : { calling: 'Ringing…', ringing: 'Incoming call', connecting: 'Connecting…', active: call.reconnecting ? 'Reconnecting…' : fmtTime(secs) }[call.phase];
   return (
     <div className="call" role="dialog" aria-modal="true" aria-label={`${video ? 'Video' : 'Audio'} call with ${call.peer.name}`}>
       <div className="call-stage">
-        {remote && <Stream stream={remote} kind={video ? 'video' : 'audio'} className={video ? 'remote' : undefined} />}
-        {(!video || !remote) && (
+        {remote && !ended && <Stream stream={remote} kind={video ? 'video' : 'audio'} className={video ? 'remote' : undefined} />}
+        {(!video || !remote || ended) && (
           <div className="call-who"><div className="col" style={{ alignItems: 'center' }}>
             <div className="avatar" style={{ width: 96, height: 96, fontSize: 32 }}>{initials(call.peer.name)}</div>
-            <h2 style={{ margin: 0 }}>{call.peer.name}</h2><p className="muted" aria-live="polite">{label}</p>
+            <h2 style={{ margin: 0 }}>{call.peer.name}</h2>
+            <p className="muted" aria-live="polite" style={{ fontVariantNumeric: 'tabular-nums', fontSize: ended ? '1.15rem' : undefined }}>{label}</p>
           </div></div>
         )}
-        {video && localStream && <Stream stream={localStream} className="local" muted />}
-        <div className="call-controls">
-          {call.phase === 'ringing' ? (
+        {video && remote && !ended && call.phase === 'active' && (
+          <div style={{ position: 'absolute', top: 14, left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' }}>
+            <span style={{ background: 'rgba(0,0,0,0.45)', padding: '4px 12px', borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>{call.reconnecting ? 'Reconnecting…' : fmtTime(secs)}</span>
+          </div>
+        )}
+        {video && localStream && !ended && <Stream stream={localStream} className="local" muted />}
+        <div className="call-controls" style={{ alignItems: 'flex-start', gap: 28 }}>
+          {ended ? (
             <>
-              <button className="btn ok" onClick={onAccept}>📞 Accept</button>
-              <button className="btn danger" onClick={onHangup}>Decline</button>
+              <Round label="Cancel" caption="Cancel" onClick={onDismiss}><IcoClose /></Round>
+              <Round label="Call again" caption="Call again" onClick={onAgain} bg={GREEN}><IcoPhone /></Round>
+            </>
+          ) : call.phase === 'ringing' ? (
+            <>
+              <Round label="Decline call" caption="Decline" onClick={onHangup} bg={RED}><IcoHangup /></Round>
+              <Round label="Accept call" caption="Accept" onClick={onAccept} bg={GREEN}><IcoPhone /></Round>
             </>
           ) : (
             <>
-              <button className="btn icon" onClick={onMute} aria-pressed={Boolean(call.muted)} aria-label={call.muted ? 'Unmute microphone' : 'Mute microphone'}>{call.muted ? '🔇' : '🎤'}</button>
-              {video && <button className="btn icon" onClick={onCam} aria-pressed={Boolean(call.camOff)} aria-label={call.camOff ? 'Turn camera on' : 'Turn camera off'}>{call.camOff ? '🚫' : '📷'}</button>}
-              <button className="btn danger" onClick={onHangup}>End call</button>
+              <Round label={call.muted ? 'Unmute microphone' : 'Mute microphone'} caption={call.muted ? 'Unmute' : 'Mute'} onClick={onMute} pressed={Boolean(call.muted)} bg={call.muted ? '#fff' : GLASS} color={call.muted ? '#111' : '#fff'}><IcoMic off={call.muted} /></Round>
+              {video && <Round label={call.camOff ? 'Turn camera on' : 'Turn camera off'} caption="Camera" onClick={onCam} pressed={Boolean(call.camOff)} bg={call.camOff ? '#fff' : GLASS} color={call.camOff ? '#111' : '#fff'}><IcoCam off={call.camOff} /></Round>}
+              <Round label="End call" caption="End" onClick={onHangup} bg={RED}><IcoHangup /></Round>
             </>
           )}
         </div>
