@@ -1,0 +1,11 @@
+**/node_modules
+**/test
+**/coverage
+**/.env
+**/.env.*
+.git
+**/*.md
+**/*.log
+vitest.config.js
+test-setup.js
+eslint.config.js

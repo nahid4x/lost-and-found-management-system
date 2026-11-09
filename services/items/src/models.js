@@ -20,6 +20,9 @@ const itemSchema = new Schema({
   heldAt: { type: String, trim: true, maxlength: 200 },
   contactNote: { type: String, trim: true, maxlength: 200 },
   questions: { type: [String], default: undefined },
+  // Public-safe metadata of the private verification questions (NO answers live on the item document).
+  verificationMeta: { type: [{ _id: false, id: String, question: String, type: { type: String, enum: ['text', 'number', 'descriptive'], default: 'text' }, weight: { type: Number, min: 1, max: 5, default: 1 } }], default: undefined },
+  claimsCount: { type: Number, default: 0 },
   approvedClaimant: { type: String, default: null },
   hidden: { type: Boolean, default: false },
   history: [{ _id: false, from: String, to: String, actor: String, at: Date }],
@@ -31,3 +34,12 @@ itemSchema.index({ type: 1, status: 1, createdAt: -1 });
 itemSchema.index({ category: 1, date: -1 });
 
 export const Item = mongoose.models.Item || mongoose.model('Item', itemSchema);
+
+// Correct answers are stored in their own collection, keyed by item. They are read in exactly three places:
+// the owner's GET/PUT /:id/verification and the service-token-only internal endpoint used for scoring.
+const secretSchema = new Schema({
+  itemId: { type: String, required: true, unique: true },
+  owner: { type: String, required: true },
+  entries: [{ _id: false, id: String, answer: { type: String, maxlength: 200 }, tolerance: Number }],
+}, { timestamps: true });
+export const ItemSecret = mongoose.models.ItemSecret || mongoose.model('ItemSecret', secretSchema);

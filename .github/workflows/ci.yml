@@ -1,0 +1,80 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+
+permissions: { contents: read }
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mongo: { image: "mongo:7", ports: ["27017:27017"] }
+      redis: { image: "redis:7-alpine", ports: ["6379:6379"] }
+    defaults: { run: { working-directory: services } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: services/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test            # vitest + coverage against real MongoDB and Redis
+      - run: npm audit --omit=dev --audit-level=high
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: node scripts/check-dist-secrets.mjs dist
+      - run: npm audit --omit=dev --audit-level=high
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: gitleaks (history + tree)
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect --source /repo --redact --no-banner
+
+  containers:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate throw-away env
+        run: ./scripts/init-env.sh && sed -i 's/^CLOUDINARY_CLOUD_NAME=.*/CLOUDINARY_CLOUD_NAME=ci/;s/^CLOUDINARY_API_KEY=.*/CLOUDINARY_API_KEY=ci/;s/^CLOUDINARY_API_SECRET=.*/CLOUDINARY_API_SECRET=ci-secret-value/' .env
+      - run: docker compose config -q
+      - run: docker compose build
+      - name: Trivy image scan (fail on HIGH/CRITICAL with a fix available)
+        run: |
+          for img in $(docker compose config --images | grep '^findit-'); do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$img"
+          done
+      - name: Stack smoke test
+        run: |
+          docker compose up -d
+          for i in $(seq 1 60); do curl -skf https://localhost/healthz && break; sleep 2; done
+          BASE=https://localhost HTTP_BASE=http://localhost ./scripts/gateway-probe.sh
+      - if: failure()
+        run: docker compose logs --tail=100
+      - if: always()
+        run: docker compose down -v
+
+  e2e:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    needs: [containers]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: ./scripts/init-env.sh && sed -i 's/^CLOUDINARY_CLOUD_NAME=.*/CLOUDINARY_CLOUD_NAME=ci/;s/^CLOUDINARY_API_KEY=.*/CLOUDINARY_API_KEY=ci/;s/^CLOUDINARY_API_SECRET=.*/CLOUDINARY_API_SECRET=ci-secret-value/' .env && docker compose up -d --build
+      - working-directory: frontend
+        run: npm ci && npx playwright install --with-deps chromium && npx playwright test
