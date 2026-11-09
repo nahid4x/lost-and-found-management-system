@@ -1,0 +1,8 @@
+version: 2
+updates:
+  - { package-ecosystem: npm, directory: /services, schedule: { interval: weekly }, open-pull-requests-limit: 10 }
+  - { package-ecosystem: npm, directory: /frontend, schedule: { interval: weekly }, open-pull-requests-limit: 10 }
+  - { package-ecosystem: docker, directory: /gateway, schedule: { interval: weekly } }
+  - { package-ecosystem: docker, directory: /frontend, schedule: { interval: weekly } }
+  - { package-ecosystem: docker, directory: /services/auth, schedule: { interval: weekly } }
+  - { package-ecosystem: github-actions, directory: /, schedule: { interval: weekly } }
