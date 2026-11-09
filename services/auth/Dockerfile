@@ -23,6 +23,8 @@ COPY --chown=node:node package.json ./
 COPY --chown=node:node shared ./shared
 COPY --chown=node:node auth ./auth
 RUN rm -rf /app/auth/test /app/auth/Dockerfile
+# The app only runs `node`; dropping npm/npx removes npm's bundled packages from the image (Trivy findings).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /opt/yarn* /usr/local/bin/yarn*
 USER node
 WORKDIR /app/auth
 EXPOSE 4001
