@@ -189,9 +189,21 @@ describe('calls (WebRTC signalling)', () => {
     await ended;
     expect((await emit(a, 'call:offer', { callId: inv.callId, data: {} })).error).toBe('forbidden'); // call is over
   });
-  it('reject notifies the caller; offline callee and non-members are refused', async () => {
+  it('calling someone who is offline still works: they get it if they connect while it rings', async () => {
     const a = await connect(tok(A, 'Alice F'));
-    expect((await emit(a, 'call:invite', { conversationId: conv })).error).toBe('offline');
+    const inv = await emit(a, 'call:invite', { conversationId: conv });
+    expect(inv.ok).toBe(true);
+    expect(inv.online).toBe(false);
+    const ringing = once(a, 'call:ringing');
+    const b = await client(url, { auth: { token: tok(B, 'Bob C') }, transports: ['websocket'], reconnection: false, forceNew: true });
+    open.push(b);
+    const incoming = once(b, 'call:incoming');
+    expect((await incoming).callId).toBe(inv.callId);
+    expect((await ringing).callId).toBe(inv.callId);
+    await emit(a, 'call:end', { callId: inv.callId });
+  });
+  it('reject notifies the caller; non-members are refused', async () => {
+    const a = await connect(tok(A, 'Alice F'));
     const b = await connect(tok(B, 'Bob C')); const c = await connect(tok(C, 'Mallory'));
     expect((await emit(c, 'call:invite', { conversationId: conv })).error).toBe('forbidden');
     const inv = await emit(a, 'call:invite', { conversationId: conv });
