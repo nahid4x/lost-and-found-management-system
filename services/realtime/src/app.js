@@ -6,8 +6,9 @@ import { validate, objectId } from '@findit/shared/validate';
 import { makeLimiter } from '@findit/shared/ratelimit';
 import { notFound, badRequest } from '@findit/shared/errors';
 import { trusted } from '@findit/shared/db';
-import { Conversation, Message, ChatImage, pairKey, messageView } from './models.js';
+import { Conversation, Message, ChatImage, Call, pairKey, messageView } from './models.js';
 import { iceServers } from './ice.js';
+import { AccessToken } from 'livekit-server-sdk';
 
 const idParam = z.object({ id: objectId });
 const imgParams = z.object({ id: objectId, imgId: objectId });
@@ -62,8 +63,7 @@ export function createRealtimeApp({ env, logger, bus, redis = null, getIo = () =
       res.json({ messages: docs.map(messageView), conversation: view(c, req.user.id) });
     } catch (e) { next(e); }
   });
-
-  // Photo upload: raw JPEG bytes (the browser re-encodes the picture, which also strips location/EXIF data).
+    // Photo upload: raw JPEG bytes (the browser re-encodes the picture, which also strips location/EXIF data).
   app.post('/conversations/:id/images', auth, imgLimit, validate(idParam, 'params'), validate(sidQuery, 'query'), express.raw({ type: 'image/jpeg', limit: IMG_MAX }), async (req, res, next) => {
     try {
       const c = await Conversation.findOne({ _id: req.params.id, participants: req.user.id });
@@ -122,8 +122,22 @@ export function createRealtimeApp({ env, logger, bus, redis = null, getIo = () =
       res.json({ ok: true });
     } catch (e) { next(e); }
   });
+    const livekitOn = Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET);
 
-  app.get('/calls/ice', auth, (req, res) => res.json(iceServers(env, req.user.id)));
+  // ICE servers for plain WebRTC; `livekit: true` tells the browser to route media through LiveKit instead.
+  app.get('/calls/ice', auth, (req, res) => res.json({ ...iceServers(env, req.user.id), livekit: livekitOn }));
+
+  // Short-lived LiveKit token: only the two people in an unfinished call get one, for that call's room only.
+  app.post('/calls/:id/token', auth, validate(idParam, 'params'), async (req, res, next) => {
+    try {
+      if (!livekitOn) throw notFound('Not available');
+      const call = await Call.findById(req.params.id);
+      if (!call || ![call.caller, call.callee].includes(req.user.id) || !['ringing', 'active'].includes(call.status)) throw notFound('Call not found');
+      const at = new AccessToken(env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, { identity: req.user.id, name: req.user.name ?? 'User', ttl: 3600 });
+      at.addGrant({ room: String(call._id), roomJoin: true, canPublish: true, canSubscribe: true });
+      res.json({ url: env.LIVEKIT_URL, token: await at.toJwt() });
+    } catch (e) { next(e); }
+  });
 
   const wire = async () => {
     await bus.on('claim.approved', async (p) => {

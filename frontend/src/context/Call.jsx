@@ -14,11 +14,13 @@ export function CallProvider({ children }) {
   const { socket } = useLive();
   const toast = useToast();
   const [call, setCall] = useState(null); // {phase, callId, peer, callType, conversationId, muted, camOff, reconnecting}
-  const pc = useRef(null); const local = useRef(null); const pendingIce = useRef([]); const callRef = useRef(null);
+  const pc = useRef(null); const lk = useRef(null); const local = useRef(null); const pendingIce = useRef([]); const callRef = useRef(null);
   const [remoteStream, setRemoteStream] = useState(null); const [localStream, setLocalStream] = useState(null);
   callRef.current = call;
 
   const cleanup = useCallback(() => {
+    const room = lk.current; lk.current = null;
+    try { room?.disconnect(); } catch { /* already closed */ }
     pc.current?.close(); pc.current = null;
     local.current?.getTracks().forEach((t) => t.stop()); local.current = null;
     pendingIce.current = []; setRemoteStream(null); setLocalStream(null);
@@ -34,10 +36,32 @@ export function CallProvider({ children }) {
     catch { throw new Error('Microphone/camera permission was denied. Allow access in your browser and try again.'); }
   }, []);
 
+  // LiveKit path: media goes through the LiveKit server, so it also works when the two people are on different networks.
+  const joinLiveKit = useCallback(async (callId, stream) => {
+    const [{ url, token }, { Room, RoomEvent, Track }] = await Promise.all([api.post(`/realtime/calls/${callId}/token`), import('livekit-client')]);
+    const room = new Room({ adaptiveStream: true, dynacast: true });
+    lk.current = room;
+    const remote = new MediaStream();
+    const show = () => setRemoteStream(new MediaStream(remote.getTracks()));
+    room.on(RoomEvent.TrackSubscribed, (track) => {
+      remote.addTrack(track.mediaStreamTrack); show();
+      setCall((c) => (c ? { ...c, phase: 'active', reconnecting: false } : c));
+    });
+    room.on(RoomEvent.TrackUnsubscribed, (track) => { remote.removeTrack(track.mediaStreamTrack); show(); });
+    room.on(RoomEvent.Reconnecting, () => setCall((c) => (c ? { ...c, reconnecting: true } : c)));
+    room.on(RoomEvent.Reconnected, () => setCall((c) => (c ? { ...c, reconnecting: false } : c)));
+    room.on(RoomEvent.Disconnected, () => { if (lk.current === room && callRef.current) finish('Call connection lost'); });
+    await room.connect(url, token);
+    for (const track of stream.getTracks()) {
+      await room.localParticipant.publishTrack(track, { source: track.kind === 'audio' ? Track.Source.Microphone : Track.Source.Camera });
+    }
+  }, [finish]);
+
   const prepare = useCallback(async (callId, callType, ready) => {
     const stream = ready ?? (await getMedia(callType));
     local.current = stream; setLocalStream(stream);
-    const { iceServers } = await api.get('/realtime/calls/ice');
+    const { iceServers, livekit } = await api.get('/realtime/calls/ice');
+    if (livekit) { await joinLiveKit(callId, stream); return null; }
     const conn = new RTCPeerConnection({ iceServers });
     pc.current = conn;
     stream.getTracks().forEach((t) => conn.addTrack(t, stream));
@@ -49,7 +73,7 @@ export function CallProvider({ children }) {
       if (st === 'failed') finish('Call connection failed');
     };
     return conn;
-  }, [socket, finish, getMedia]);
+  }, [socket, finish, getMedia, joinLiveKit]);
 
   const start = useCallback(async (conversation, callType = 'audio') => {
     if (!socket || callRef.current) return;
