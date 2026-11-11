@@ -61,7 +61,7 @@ export function CallProvider({ children }) {
       toast.error(ack.error === 'offline' ? `${conversation.other.name} is offline right now.` : ack.error === 'busy' ? 'A call is already in progress.' : 'Could not start the call.');
       return;
     }
-    const next = { phase: 'calling', callId: ack.callId, peer: conversation.other, callType, conversationId: conversation.id };
+    const next = { phase: 'calling', callId: ack.callId, peer: conversation.other, callType, conversationId: conversation.id, offline: ack.online === false };
     callRef.current = next; setCall(next);
     try { await prepare(ack.callId, callType, stream); } catch (e) { callRef.current = null; socket.emit('call:end', { callId: ack.callId }, () => {}); finish(); toast.error(e.message); }
   }, [socket, prepare, finish, toast, getMedia]);
@@ -98,6 +98,7 @@ export function CallProvider({ children }) {
     const flush = async () => { for (const c of pendingIce.current.splice(0)) await pc.current?.addIceCandidate(c).catch(() => {}); };
     const h = {
       'call:incoming': (d) => { if (callRef.current) return; setCall({ phase: 'ringing', callId: d.callId, peer: d.from, callType: d.callType, conversationId: d.conversationId }); },
+      'call:ringing': ({ callId }) => setCall((c) => (c && c.callId === callId && c.offline ? { ...c, offline: false } : c)),
       'call:accepted': async ({ callId }) => {
         if (!pc.current || callRef.current?.callId !== callId) return;
         const offer = await pc.current.createOffer(); await pc.current.setLocalDescription(offer);
@@ -221,7 +222,7 @@ function CallOverlay({ call, remote, localStream, onAccept, onHangup, onMute, on
   const secs = useCallTimer(call.phase === 'active'); // call length once connected
   const label = ended
     ? (call.outcome === 'declined' ? 'Call declined' : 'No answer')
-    : { calling: 'Ringing…', ringing: 'Incoming call', connecting: 'Connecting…', active: call.reconnecting ? 'Reconnecting…' : fmtTime(secs) }[call.phase];
+    : { calling: call.offline ? 'Calling…' : 'Ringing…', ringing: 'Incoming call', connecting: 'Connecting…', active: call.reconnecting ? 'Reconnecting…' : fmtTime(secs) }[call.phase];
   return (
     <div className="call" role="dialog" aria-modal="true" aria-label={`${video ? 'Video' : 'Audio'} call with ${call.peer.name}`}>
       <div className="call-stage">

@@ -191,12 +191,12 @@ export function attachSocket({ httpServer, env, logger, bus, presence, adapter, 
       if (!c) return { error: 'forbidden' };
       const peer = other(c, me.id);
       if (activeCalls.has(me.id) || activeCalls.has(peer)) return { error: 'busy' };
-      if (!(await isOnline(peer))) return { error: 'offline' };
+      const online = await isOnline(peer); // an offline person can still be called: it keeps "calling" until they open the app or it times out
       const call = await Call.create({ conversation: conversationId, caller: me.id, callee: peer, callType, status: 'ringing' });
       activeCalls.set(me.id, String(call._id)); activeCalls.set(peer, String(call._id));
       io.to(room(peer)).emit('call:incoming', { callId: String(call._id), conversationId, callType, from: { id: me.id, name: me.name } });
       setTimeout(async () => { const fresh = await Call.findById(call._id); if (fresh?.status === 'ringing') await endCall(fresh, 'missed', me.id); }, RING_TIMEOUT_MS).unref();
-      return { ok: true, callId: String(call._id) };
+      return { ok: true, callId: String(call._id), online };
     });
 
     const loadCall = async (callId) => {
@@ -246,6 +246,16 @@ export function attachSocket({ httpServer, env, logger, bus, presence, adapter, 
       }
       if (!(await isOnline(me.id))) await announce(me.id, false);
     });
+
+    // A call that is still ringing reaches me if I open the app before it times out.
+    try {
+      const live = await Call.findOne({ callee: me.id, status: 'ringing', createdAt: trusted({ $gt: new Date(Date.now() - RING_TIMEOUT_MS) }) });
+      if (live && activeCalls.get(me.id) === String(live._id)) {
+        const conv = await Conversation.findById(live.conversation).select('names');
+        socket.emit('call:incoming', { callId: String(live._id), conversationId: live.conversation, callType: live.callType, from: { id: live.caller, name: conv?.names?.[live.caller] ?? 'User' } });
+        io.to(room(live.caller)).emit('call:ringing', { callId: String(live._id) });
+      }
+    } catch (err) { logger.error('ringing catch-up failed', { err }); }
 
     // Messages that arrived while offline are now delivered: tell the senders.
     try {
