@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/Auth.jsx';
 import { useLive } from '../context/Live.jsx';
 import { initials } from '../lib/util.js';
+import ThemeToggle from './ThemeToggle.jsx';
 
 export function Navbar() {
   const { user, logout, isAdmin } = useAuth();
@@ -37,6 +38,7 @@ export function Navbar() {
         {isAdmin && <NavLink to="/admin" onClick={close}>Admin</NavLink>}
       </nav>
       <span className="spacer" />
+      <ThemeToggle />
       {user ? (
         <>
           <Link to="/report/lost" className="btn primary sm">+ Report</Link>
