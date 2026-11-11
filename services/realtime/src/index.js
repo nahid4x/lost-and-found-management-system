@@ -16,6 +16,9 @@ export const realtimeShape = {
   STUN_URLS: z.string().default('stun:stun.l.google.com:19302').transform((v) => v.split(',')),
   TURN_URLS: z.string().optional().transform((v) => (v ? v.split(',') : undefined)),
   TURN_SECRET: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()), TURN_TTL_SECONDS: z.coerce.number().int().min(60).max(86400).default(3600),
+  LIVEKIT_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().regex(/^wss?:\/\//).optional()),
+  LIVEKIT_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(1).optional()),
+  LIVEKIT_API_SECRET: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(16).optional()),
 };
 const env = loadEnv(realtimeShape);
 const logger = createLogger('realtime', env.LOG_LEVEL);
