@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ToastProvider } from './context/Toast.jsx';
 import { AuthProvider } from './context/Auth.jsx';
 import { LiveProvider } from './context/Live.jsx';
@@ -18,6 +19,7 @@ const Claims = lazy(() => import('./pages/Claims.jsx'));
 const Messages = lazy(() => import('./pages/Messages.jsx'));
 const Notifications = lazy(() => import('./pages/Notifications.jsx'));
 const Profile = lazy(() => import('./pages/Profile.jsx'));
+const Settings = lazy(() => import('./pages/Settings.jsx'));
 const Admin = lazy(() => import('./pages/Admin.jsx'));
 const AuthPages = lazy(() => import('./pages/AuthPages.jsx'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
@@ -25,12 +27,13 @@ const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 const fallback = <div className="container"><Skeleton h={320} /></div>;
 
 export default function App() {
+  const { t } = useTranslation();
   return (
     <ToastProvider>
       <AuthProvider>
         <LiveProvider>
           <CallProvider>
-            <a className="skip" href="#main">Skip to content</a>
+            <a className="skip" href="#main">{t('app.skip')}</a>
             <Navbar />
             <main id="main">
               <Suspense fallback={fallback}>
@@ -47,6 +50,7 @@ export default function App() {
                   <Route path="/messages/:id" element={<Protected><Messages /></Protected>} />
                   <Route path="/notifications" element={<Protected><Notifications /></Protected>} />
                   <Route path="/profile" element={<Protected><Profile /></Protected>} />
+                  <Route path="/settings" element={<Protected><Settings /></Protected>} />
                   <Route path="/admin" element={<Protected admin><Admin /></Protected>} />
                   <Route path="/login" element={<AuthPages mode="login" />} />
                   <Route path="/register" element={<AuthPages mode="register" />} />
@@ -57,7 +61,7 @@ export default function App() {
                 </Routes>
               </Suspense>
             </main>
-            <footer className="footer">Every lost item has a story. Let's bring it home. · © {new Date().getFullYear()} FindIt</footer>
+            <footer className="footer">{t('app.footer')} · © {new Date().getFullYear()} FindIt</footer>
           </CallProvider>
         </LiveProvider>
       </AuthProvider>

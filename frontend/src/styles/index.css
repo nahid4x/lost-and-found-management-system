@@ -210,3 +210,10 @@ img { max-width: 100%; display: block; }
 .icon-btn svg { opacity: .7; transition: opacity .15s; }
 .icon-btn:hover svg,
 .icon-btn:focus-visible svg { opacity: 1; }.osm-dark { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); } 
+:root[lang="bn"] body,
+:root[lang="bn"] button,
+:root[lang="bn"] input,
+:root[lang="bn"] select,
+:root[lang="bn"] textarea {
+  font-family: 'Noto Sans Bengali', system-ui, sans-serif;
+}

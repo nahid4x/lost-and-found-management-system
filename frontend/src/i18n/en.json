@@ -1,0 +1,36 @@
+{
+  "nav": {
+    "lost": "Lost",
+    "found": "Found",
+    "map": "Map",
+    "myReports": "My reports",
+    "claims": "Claims",
+    "admin": "Admin",
+    "report": "+ Report",
+    "messages": "Messages, {{count}} unread",
+    "notifications": "Notifications, {{count}} unread",
+    "signIn": "Sign in",
+    "join": "Join",
+    "main": "Main",
+    "menu": "Menu",
+    "accountMenu": "Account menu for {{name}}"
+  },
+  "menu": {
+    "profile": "Profile",
+    "settings": "Settings",
+    "verifyEmail": "Verify email",
+    "signOut": "Sign out"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "languageHint": "Choose the language for the whole app."
+  },
+   "home": {
+    "title": "Lost it? Found it. Together."
+  },
+  "app": {
+    "skip": "Skip to content",
+    "footer": "Every lost item has a story. Let's bring it home."
+  }
+}
