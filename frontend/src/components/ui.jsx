@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 export const cx = (...a) => a.filter(Boolean).join(' ');
 
@@ -30,6 +31,7 @@ export function Field({ label, error, hint, as = 'input', children, className, .
 }
 
 export function Modal({ open, onClose, title, wide, children }) {
+  const { t } = useTranslation();
   const ref = useRef(null);
   useEffect(() => {
     if (!open) return undefined;
@@ -55,7 +57,7 @@ export function Modal({ open, onClose, title, wide, children }) {
       <div ref={ref} className={cx('glass modal', wide && 'wide')} role="dialog" aria-modal="true" aria-label={title}>
         <div className="row" style={{ marginBottom: 12 }}>
           <h2 style={{ margin: 0, fontSize: '1.4rem' }}>{title}</h2><span className="spacer" />
-          <button className="icon-btn" onClick={onClose} aria-label="Close dialog">✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label={t('common.closeDialog')}>✕</button>
         </div>
         {children}
       </div>
@@ -64,13 +66,20 @@ export function Modal({ open, onClose, title, wide, children }) {
 }
 
 export const Skeleton = ({ h = 120, className }) => <div className={cx('skeleton', className)} style={{ minHeight: h }} aria-hidden />;
-export const SkeletonGrid = ({ n = 6, h = 280 }) => <div className="grid cards" aria-busy="true" aria-label="Loading">{Array.from({ length: n }, (_, i) => <Skeleton key={i} h={h} />)}</div>;
+
+export function SkeletonGrid({ n = 6, h = 280 }) {
+  const { t } = useTranslation();
+  return <div className="grid cards" aria-busy="true" aria-label={t('common.loading')}>{Array.from({ length: n }, (_, i) => <Skeleton key={i} h={h} />)}</div>;
+}
 
 export function Empty({ icon = '🔍', title, children, action }) {
   return <Glass className="empty"><div className="big" aria-hidden>{icon}</div><h3>{title}</h3><p className="muted">{children}</p>{action}</Glass>;
 }
 
-export const Chip = ({ kind, children }) => <span className={cx('chip', kind)}>{children ?? kind}</span>;
+export function Chip({ kind, children }) {
+  const { t } = useTranslation();
+  return <span className={cx('chip', kind)}>{children ?? (kind ? t(`status.${kind}`, { defaultValue: kind }) : null)}</span>;
+}
 
 /** Fades/slides children in; disabled for users who prefer reduced motion. */
 export function Reveal({ children, delay = 0, className }) {

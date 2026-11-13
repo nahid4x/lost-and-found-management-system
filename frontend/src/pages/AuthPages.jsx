@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation, Trans } from 'react-i18next';
 import { Glass, Field, Button, Reveal } from '../components/ui.jsx';
 import { PasswordField } from '../components/PasswordField.jsx';
 import { useAuth } from '../context/Auth.jsx';
@@ -17,12 +18,23 @@ const titleCase = (s) =>
 // Email is always lower case and never contains spaces.
 const lowerEmail = (s) => s.toLowerCase().replace(/\s/g, '');
 
+const STRENGTH_KEYS = ['tooWeak', 'weak', 'fair', 'good', 'strong'];
+
 function Strength({ pw }) {
+  const { t } = useTranslation();
   const s = strength(pw);
-  return <div aria-live="polite"><div className="bar" role="presentation"><i style={{ width: `${(s / 4) * 100}%`, background: ['#fb7185', '#fb7185', '#fbbf24', '#4ade80', '#2dd4bf'][s] }} /></div><span className="hint">Strength: {['too weak', 'weak', 'fair', 'good', 'strong'][s]}. Use 10+ characters; a passphrase works well.</span></div>;
+  return (
+    <div aria-live="polite">
+      <div className="bar" role="presentation">
+        <i style={{ width: `${(s / 4) * 100}%`, background: ['#fb7185', '#fb7185', '#fbbf24', '#4ade80', '#2dd4bf'][s] }} />
+      </div>
+      <span className="hint">{t('auth.strength', { label: t(`auth.str.${STRENGTH_KEYS[s]}`) })}</span>
+    </div>
+  );
 }
 
 export default function AuthPages({ mode }) {
+  const { t } = useTranslation();
   const { user, login, register } = useAuth();
   const nav = useNavigate();
   const [sp] = useSearchParams();
@@ -50,8 +62,8 @@ export default function AuthPages({ mode }) {
   // Resend countdown.
   useEffect(() => {
     if (cooldown <= 0) return undefined;
-    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
   }, [cooldown]);
 
   if (user && ['login', 'register'].includes(mode)) return <Navigate to={next} replace />;
@@ -61,14 +73,14 @@ export default function AuthPages({ mode }) {
     try {
       await api.post('/auth/email/otp/send', {});
       setCooldown(OTP_COOLDOWN_S);
-      setCodeInfo(`We sent a 6-digit code to ${user?.email ?? 'your email'}. It expires in 5 minutes.`);
+      setCodeInfo(t('auth.codeSent', { email: user?.email ?? t('auth.yourEmail') }));
     } catch (err) { setCodeMsg(errMsg(err)); } finally { setSending(false); }
   };
 
   const verifyCode = async (e) => {
     e.preventDefault();
     setCodeMsg(''); setCodeInfo('');
-    if (!/^\d{6}$/.test(code)) { setCodeMsg('Enter the 6-digit code from your email'); return; }
+    if (!/^\d{6}$/.test(code)) { setCodeMsg(t('auth.err.code6')); return; }
     setBusy(true);
     try {
       await api.post('/auth/email/otp/verify', { code });
@@ -83,10 +95,13 @@ export default function AuthPages({ mode }) {
     const er = {};
     const email = f.email.trim().toLowerCase();
     const name = titleCase(f.name.trim()).trim();
-    if (mode !== 'reset' && mode !== 'verify' && !EMAIL.test(email)) er.email = 'Enter a valid email (example: name@gmail.com)';
-    if (mode === 'register' && name.length < 2) er.name = 'Enter your name';
-    if (['register', 'reset'].includes(mode)) { const p = validatePassword(f.password); if (p.length) er.password = `Password needs ${p.join(', ')}`; }
-    if (mode === 'login' && !f.password) er.password = 'Enter your password';
+    if (mode !== 'reset' && mode !== 'verify' && !EMAIL.test(email)) er.email = t('auth.err.email');
+    if (mode === 'register' && name.length < 2) er.name = t('auth.err.name');
+    if (['register', 'reset'].includes(mode)) {
+      const p = validatePassword(f.password);
+      if (p.length) er.password = t('auth.err.pwNeeds', { list: p.join(', ') });
+    }
+    if (mode === 'login' && !f.password) er.password = t('auth.err.pwEmpty');
     setErrors(er); setMsg('');
     if (Object.keys(er).length) return;
     setBusy(true);
@@ -95,35 +110,56 @@ export default function AuthPages({ mode }) {
       else if (mode === 'register') { await register(name, email, f.password); nav(next, { replace: true }); }
       else if (mode === 'forgot') { await api.post('/auth/password/forgot', { email }); setState('sent'); }
       else if (mode === 'reset') { await api.post('/auth/password/reset', { token, password: f.password }); setState('ok'); }
-    } catch (err) { setMsg(mode === 'login' ? 'Invalid email or password' : errMsg(err)); } finally { setBusy(false); }
+    } catch (err) { setMsg(mode === 'login' ? t('auth.err.invalid') : errMsg(err)); } finally { setBusy(false); }
   };
 
-  const title = { login: 'Welcome back', register: 'Join FindIt', forgot: 'Reset your password', reset: 'Choose a new password', verify: 'Email confirmation' }[mode];
+  const title = t(`auth.title.${mode}`);
 
   const verifyBody = () => {
     // Link flow (?token=...)
     if (token) {
-      return <p>{state === 'working' ? 'Confirming…' : state === 'ok' ? '✅ Your email is confirmed.' : 'This link is invalid or has expired.'} <Link to="/">Go home</Link></p>;
+      return (
+        <p>
+          {state === 'working' ? t('auth.confirming') : state === 'ok' ? t('auth.confirmed') : t('auth.linkBad')}{' '}
+          <Link to="/">{t('auth.goHome')}</Link>
+        </p>
+      );
     }
     // Code flow needs a signed-in user.
     if (!user) {
-      return <p>Please <Link to={`/login?next=${encodeURIComponent('/verify-email')}`}>sign in</Link> to verify your email with a code.</p>;
+      return (
+        <p>
+          <Trans
+            i18nKey="auth.pleaseSignIn"
+            components={{ a: <Link to={`/login?next=${encodeURIComponent('/verify-email')}`} /> }}
+          />
+        </p>
+      );
     }
-    if (state === 'ok') return <p>✅ Your email is confirmed. <Link to="/">Go home</Link></p>;
-    if (user.emailVerified) return <p>✅ Your email is already verified. <Link to="/">Go home</Link></p>;
+    if (state === 'ok') return <p>{t('auth.confirmed')} <Link to="/">{t('auth.goHome')}</Link></p>;
+    if (user.emailVerified) return <p>{t('auth.alreadyVerified')} <Link to="/">{t('auth.goHome')}</Link></p>;
     return (
       <form className="col" onSubmit={verifyCode} noValidate>
-        <p className="muted">Enter the 6-digit code sent to <strong>{user.email}</strong>. No code yet? Use the button below.</p>
-        <Field label="6-digit code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} />
+        <p className="muted">
+          <Trans i18nKey="auth.enterCode" values={{ email: user.email }} components={{ b: <strong /> }} />
+        </p>
+        <Field
+          label={t('auth.code6Label')}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          maxLength={6}
+        />
         {codeInfo && <p className="hint" role="status">{codeInfo}</p>}
         {codeMsg && <p className="err" role="alert">{codeMsg}</p>}
-        <Button variant="primary" loading={busy}>Verify email</Button>
+        <Button variant="primary" loading={busy}>{t('auth.verifyBtn')}</Button>
         <div className="row small">
           <button type="button" className="linklike" onClick={sendCode} disabled={sending || cooldown > 0}>
-            {cooldown > 0 ? `Send a new code in ${cooldown}s` : sending ? 'Sending…' : 'Send a new code'}
+            {cooldown > 0 ? t('auth.sendNewIn', { s: cooldown }) : sending ? t('auth.sending') : t('auth.sendNew')}
           </button>
           <span className="spacer" />
-          <Link to="/">Go home</Link>
+          <Link to="/">{t('auth.goHome')}</Link>
         </div>
       </form>
     );
@@ -136,21 +172,43 @@ export default function AuthPages({ mode }) {
         {mode === 'verify' ? (
           verifyBody()
         ) : state === 'sent' ? (
-          <p className="muted">If an account exists for that email, a reset link is on its way. It works once and expires in 30 minutes.</p>
+          <p className="muted">{t('auth.sentReset')}</p>
         ) : state === 'ok' ? (
-          <p>✅ Password updated. <Link to="/login">Sign in</Link></p>
+          <p>{t('auth.pwUpdated')} <Link to="/login">{t('auth.signIn')}</Link></p>
         ) : (
           <form className="col" onSubmit={submit} noValidate>
-            {mode === 'register' && <Field label="Full name" name="name" autoComplete="name" autoCapitalize="words" value={f.name} onChange={set('name', titleCase)} error={errors.name} maxLength={60} />}
-            {mode !== 'reset' && <Field label="Email" type="email" name="email" autoComplete={mode === 'forgot' ? 'email' : 'username'} autoCapitalize="none" spellCheck={false} value={f.email} onChange={set('email', lowerEmail)} error={errors.email} maxLength={254} />}
-            {mode !== 'forgot' && <PasswordField label={mode === 'reset' ? 'New password' : 'Password'} name="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={f.password} onChange={set('password')} error={errors.password} maxLength={128} />}
+            {mode === 'register' && (
+              <Field label={t('auth.fullName')} name="name" autoComplete="name" autoCapitalize="words"
+                value={f.name} onChange={set('name', titleCase)} error={errors.name} maxLength={60} />
+            )}
+            {mode !== 'reset' && (
+              <Field label={t('auth.email')} type="email" name="email"
+                autoComplete={mode === 'forgot' ? 'email' : 'username'} autoCapitalize="none" spellCheck={false}
+                value={f.email} onChange={set('email', lowerEmail)} error={errors.email} maxLength={254} />
+            )}
+            {mode !== 'forgot' && (
+              <PasswordField label={mode === 'reset' ? t('auth.newPassword') : t('auth.password')} name="password"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                value={f.password} onChange={set('password')} error={errors.password} maxLength={128} />
+            )}
             {['register', 'reset'].includes(mode) && <Strength pw={f.password} />}
             {msg && <p className="err" role="alert">{msg}</p>}
-            <Button variant="primary" loading={busy}>{{ login: 'Sign in', register: 'Create account', forgot: 'Send reset link', reset: 'Update password' }[mode]}</Button>
+            <Button variant="primary" loading={busy}>{t(`auth.btn.${mode}`)}</Button>
             <div className="row small">
-              {mode === 'login' && <><Link to="/forgot-password">Forgot password?</Link><span className="spacer" /><Link to={`/register${sp.get('next') ? `?next=${encodeURIComponent(next)}` : ''}`}>Create account</Link></>}
-              {mode === 'register' && <><span className="muted">Already a member?</span><Link to="/login">Sign in</Link></>}
-              {mode === 'forgot' && <Link to="/login">Back to sign in</Link>}
+              {mode === 'login' && (
+                <>
+                  <Link to="/forgot-password">{t('auth.forgotLink')}</Link>
+                  <span className="spacer" />
+                  <Link to={`/register${sp.get('next') ? `?next=${encodeURIComponent(next)}` : ''}`}>{t('auth.createAccount')}</Link>
+                </>
+              )}
+              {mode === 'register' && (
+                <>
+                  <span className="muted">{t('auth.alreadyMember')}</span>
+                  <Link to="/login">{t('auth.signIn')}</Link>
+                </>
+              )}
+              {mode === 'forgot' && <Link to="/login">{t('auth.backToSignIn')}</Link>}
             </div>
           </form>
         )}
