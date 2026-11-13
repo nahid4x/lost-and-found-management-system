@@ -1,0 +1,80 @@
+{
+  "admin": {
+    "title": "Admin",
+    "tab": { "overview": "Overview", "users": "Users", "reports": "Reports", "claims": "Claims", "audit": "Audit log" },
+    "prev": "← Prev",
+    "next": "Next →",
+    "pageOf": "Page {{page}} of {{pages}} · {{total}} total",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "anyStatus": "Any status",
+    "select": "Select {{name}}",
+    "claimsByStatus": "Claims by status",
+    "reportsByStatus": "Reports by status",
+    "kpi": {
+      "users": "Users",
+      "new7": "New (7d)",
+      "reports": "Reports",
+      "lostFound": "Lost / Found",
+      "pendingClaims": "Pending claims",
+      "recovered": "Closed or returned"
+    },
+    "col": {
+      "name": "Name", "email": "Email", "role": "Role", "status": "Status", "joined": "Joined", "actions": "Actions",
+      "title": "Title", "type": "Type", "area": "Area", "owner": "Owner", "visibility": "Visibility",
+      "item": "Item", "claimant": "Claimant", "finder": "Finder", "created": "Created"
+    },
+    "st": {
+      "pending": "pending", "approved": "approved", "rejected": "rejected", "withdrawn": "withdrawn",
+      "open": "open", "matched": "matched", "claimed": "claimed", "verified": "verified", "returned": "returned", "closed": "closed",
+      "admin": "admin", "user": "user"
+    },
+    "users": {
+      "updated": "User updated",
+      "searchAria": "Search users",
+      "searchPh": "Search name or email",
+      "bulkBtn": "Deactivate selected ({{n}})",
+      "bulkTitle": "Deactivate {{n}} user(s)?",
+      "bulkText": "They are signed out immediately and cannot log in.",
+      "active": "active",
+      "disabled": "disabled",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "deactTitle": "Deactivate {{name}}?",
+      "reactTitle": "Reactivate {{name}}?",
+      "deactText": "They are signed out immediately.",
+      "reactText": "They can sign in again.",
+      "promote": "Promote",
+      "demote": "Demote",
+      "promoteTitle": "Make {{name}} an admin?",
+      "demoteTitle": "Make {{name}} a regular user?",
+      "roleText": "Admins can moderate every report, claim and user."
+    },
+    "reports": {
+      "searchAria": "Search reports",
+      "searchPh": "Search title or area",
+      "bulkBtn": "Hide selected ({{n}})",
+      "bulkTitle": "Hide {{n}} report(s)?",
+      "bulkText": "Hidden reports disappear from public lists and search.",
+      "emptyTitle": "No reports",
+      "emptyText": "Nothing matches.",
+      "hiddenLabel": "🙈 hidden",
+      "publicLabel": "👁 public",
+      "hide": "Hide",
+      "unhide": "Unhide",
+      "delete": "Delete",
+      "delTitle": "Delete “{{title}}”?",
+      "delText": "This permanently removes the report and its photos."
+    },
+    "claims": {
+      "reject": "Reject",
+      "rejectTitle": "Reject this claim?",
+      "rejectText": "Use for abusive or fraudulent claims."
+    },
+    "audit": {
+      "filterAria": "Filter by action",
+      "filterPh": "Filter by action, e.g. claim.approve",
+      "when": "When", "service": "Service", "action": "Action", "actor": "Actor", "target": "Target", "ip": "IP"
+    }
+  }
+}
