@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Glass, Reveal, SkeletonGrid } from '../components/ui.jsx';
 import { ItemCard } from '../components/ItemParts.jsx';
 import { api } from '../lib/api.js';
@@ -18,6 +19,7 @@ function Count({ to }) {
 }
 
 export default function Home() {
+  const { t } = useTranslation();
   const nav = useNavigate();
   const [q, setQ] = useState('');
   const [stats, setStats] = useState(null);
@@ -30,29 +32,29 @@ export default function Home() {
     <div className="container">
       <Reveal>
         <section className="hero">
-          <div><h1>Lost it? <span>Found it.</span><br />Together.</h1>
-            <p className="lead">Report what you lost or found. Our matching engine suggests likely pairs, and a private verification step makes sure items go back to their real owners.</p></div>
+          <div><h1>{t('home.heroA')} <span>{t('home.heroB')}</span><br />{t('home.heroC')}</h1>
+            <p className="lead">{t('home.lead')}</p></div>
           <Glass as="form" pad className="row" role="search" onSubmit={(e) => { e.preventDefault(); nav(`/found?q=${encodeURIComponent(q)}`); }}>
-            <label className="sr-only" htmlFor="home-q">Search found items</label>
-            <input id="home-q" className="input" style={{ flex: 1, minWidth: 220 }} placeholder="Search found items: “black wallet”, “keys”, “iPhone”…" value={q} maxLength={100} onChange={(e) => setQ(e.target.value)} />
-            <button className="btn primary">Search</button>
+            <label className="sr-only" htmlFor="home-q">{t('home.searchLabel')}</label>
+            <input id="home-q" className="input" style={{ flex: 1, minWidth: 220 }} placeholder={t('home.searchPlaceholder')} value={q} maxLength={100} onChange={(e) => setQ(e.target.value)} />
+            <button className="btn primary">{t('home.searchBtn')}</button>
           </Glass>
-          <div className="row"><Link to="/report/lost" className="btn primary"> I lost something</Link><Link to="/report/found" className="btn"> I found something</Link></div>
+          <div className="row"><Link to="/report/lost" className="btn primary">{t('home.iLost')}</Link><Link to="/report/found" className="btn">{t('home.iFound')}</Link></div>
         </section>
       </Reveal>
-      <section className="stats" aria-label="Community statistics">
-        {[['Reports', stats?.reported], ['Items recovered', stats?.recovered], ['Looking for owners', stats?.openFound], ['Owners searching', stats?.openLost]].map(([l, v]) => (
-          <Glass key={l} className="stat"><b><Count to={v} /></b><span>{l}</span></Glass>
+      <section className="stats" aria-label={t('home.statsLabel')}>
+        {[['home.statReports', stats?.reported], ['home.statRecovered', stats?.recovered], ['home.statOpenFound', stats?.openFound], ['home.statOpenLost', stats?.openLost]].map(([l, v]) => (
+          <Glass key={l} className="stat"><b><Count to={v} /></b><span>{t(l)}</span></Glass>
         ))}
       </section>
-      <h2 style={{ marginTop: 48 }}>How it works</h2>
+      <h2 style={{ marginTop: 48 }}>{t('home.how')}</h2>
       <section className="steps">
-        <Glass className="step"><h3>Report</h3><p className="muted">Describe the item, drop a pin on the map and add photos. Only the approximate area is ever public.</p></Glass>
-        <Glass className="step"><h3>Match</h3><p className="muted">We compare descriptions, categories, dates and distances, and tell both sides when something looks right.</p></Glass>
-        <Glass className="step"><h3>Verify</h3><p className="muted">The finder asks private questions only the real owner can answer. Nothing sensitive is shared before approval.</p></Glass>
-        <Glass className="step"><h3>Return</h3><p className="muted">Chat or call inside FindIt, arrange the handover, and close the case.</p></Glass>
+        <Glass className="step"><h3>{t('home.step1Title')}</h3><p className="muted">{t('home.step1')}</p></Glass>
+        <Glass className="step"><h3>{t('home.step2Title')}</h3><p className="muted">{t('home.step2')}</p></Glass>
+        <Glass className="step"><h3>{t('home.step3Title')}</h3><p className="muted">{t('home.step3')}</p></Glass>
+        <Glass className="step"><h3>{t('home.step4Title')}</h3><p className="muted">{t('home.step4')}</p></Glass>
       </section>
-      <h2 style={{ marginTop: 48 }}>Latest reports</h2>
+      <h2 style={{ marginTop: 48 }}>{t('home.latest')}</h2>
       {!latest ? <SkeletonGrid n={6} /> : <div className="grid cards">{latest.map((i) => <ItemCard key={i.id} item={i} />)}</div>}
     </div>
   );
