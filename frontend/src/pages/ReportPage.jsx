@@ -13,6 +13,10 @@ import { useToast } from '../context/Toast.jsx';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// Ei field gulo uppercase e save hobe. Onno field add/remove korte ekhane key lekho/muche dao.
+const UPPER_FIELDS = new Set(['title', 'description', 'areaLabel', 'heldAt']);
+const up = (s) => (typeof s === 'string' ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
 /** Rules mirror the server's zod schema so users get instant feedback; the server remains the authority. */
 export function validateStep(step, d, type) {
   const T = (k) => i18n.t(k);
@@ -48,7 +52,11 @@ export default function ReportPage() {
   const [busy, setBusy] = useState(false);
   if (!['lost', 'found'].includes(type)) return <Navigate to="/" replace />;
   const step = steps[i];
-  const set = (k) => (e) => setD((x) => ({ ...x, [k]: e.target?.value ?? e }));
+  const set = (k) => (e) => {
+    let v = e.target?.value ?? e;
+    if (UPPER_FIELDS.has(k)) v = up(v);
+    setD((x) => ({ ...x, [k]: v }));
+  };
 
   const next = () => { const er = validateStep(step, d, type); setErrors(er); if (!Object.keys(er).length) setI((x) => x + 1); };
 
@@ -59,10 +67,10 @@ export default function ReportPage() {
     setBusy(true);
     try {
       const f = new FormData();
-      f.append('type', type); f.append('title', d.title.trim()); f.append('description', d.description.trim()); f.append('category', d.category);
-      f.append('date', new Date(`${d.date}T12:00:00`).toISOString()); f.append('lat', d.pin.lat); f.append('lng', d.pin.lng); f.append('areaLabel', d.areaLabel.trim());
+      f.append('type', type); f.append('title', up(d.title.trim())); f.append('description', up(d.description.trim())); f.append('category', d.category);
+      f.append('date', new Date(`${d.date}T12:00:00`).toISOString()); f.append('lat', d.pin.lat); f.append('lng', d.pin.lng); f.append('areaLabel', up(d.areaLabel.trim()));
       if (type === 'found') {
-        if (d.heldAt.trim()) f.append('heldAt', d.heldAt.trim());
+        if (d.heldAt.trim()) f.append('heldAt', up(d.heldAt.trim()));
         if (d.contactNote.trim()) f.append('contactNote', d.contactNote.trim());
         const payload = toPayload(d.verification);
         if (payload.length) f.append('verification', JSON.stringify(payload)); // answers travel only over the owner's authenticated request
@@ -92,7 +100,7 @@ export default function ReportPage() {
                     key={text}
                     className="btn ghost"
                     style={{ fontSize: 12, textAlign: 'left' }}
-                    onClick={() => setD((x) => ({ ...x, description: text }))}
+                    onClick={() => setD((x) => ({ ...x, description: up(text) }))}
                   >
                     {text}
                   </button>
@@ -102,7 +110,7 @@ export default function ReportPage() {
             <Field label={type === 'lost' ? t('report.dateLost') : t('report.dateFound')} type="date" max={today()} value={d.date} onChange={set('date')} error={errors.date} />
           </>}
           {step === 'where' && <>
-            <MapPicker value={d.pin} onChange={set('pin')} onArea={(name) => setD((x) => ({ ...x, areaLabel: name }))} />
+            <MapPicker value={d.pin} onChange={set('pin')} onArea={(name) => setD((x) => ({ ...x, areaLabel: up(name) }))} />
             {errors.pin && <span className="err" role="alert">{errors.pin}</span>}
             <Field label={t('report.areaName')} value={d.areaLabel} onChange={set('areaLabel')} maxLength={80} error={errors.areaLabel} placeholder={t('report.areaPh')} hint={t('report.areaHint')} />
             {type === 'found' && <>
