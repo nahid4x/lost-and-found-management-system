@@ -17,7 +17,7 @@ describe('components', () => {
   it('MatchRing and Timeline expose accessible names/current step', () => {
     render(<><MatchRing score={82.4} /><Timeline status="claimed" /></>);
     expect(screen.getByRole('img', { name: '82 percent match' })).toBeInTheDocument();
-    expect(screen.getByText('claimed').closest('li')).toHaveAttribute('aria-current', 'step');
+   expect(screen.getByText(/^claimed$/i).closest('li')).toHaveAttribute('aria-current', 'step');
   });
   it('Modal traps Escape, labels itself and restores state', () => {
     const onClose = vi.fn();
