@@ -227,5 +227,61 @@
     "email_message": "Message emails",
     "emailOnline": "Also email me while I am online",
     "emailHint": "By default emails are only sent when you are offline."
+  },
+  "auth": {
+    "title": {
+      "login": "Sign in",
+      "register": "Create your account",
+      "forgot": "Forgot password",
+      "reset": "Reset password",
+      "verify": "Verify your email"
+    },
+    "btn": {
+      "login": "Sign in",
+      "register": "Create account",
+      "forgot": "Send reset link",
+      "reset": "Update password"
+    },
+    "email": "Email",
+    "password": "Password",
+    "newPassword": "New password",
+    "fullName": "Full name",
+    "forgotLink": "Forgot password?",
+    "createAccount": "Create account",
+    "alreadyMember": "Already a member?",
+    "signIn": "Sign in",
+    "backToSignIn": "Back to sign in",
+    "strength": "Strength: {{label}}",
+    "str": {
+      "tooWeak": "Too weak",
+      "weak": "Weak",
+      "fair": "Fair",
+      "good": "Good",
+      "strong": "Strong"
+    },
+    "err": {
+      "email": "Enter a valid lowercase email address.",
+      "name": "Please enter your full name.",
+      "pwNeeds": "Password needs: {{list}}",
+      "pwEmpty": "Enter your password.",
+      "invalid": "Invalid email or password.",
+      "code6": "Enter the 6-digit code."
+    },
+    "codeSent": "We sent a code to {{email}}.",
+    "yourEmail": "your email",
+    "confirming": "Confirming your email...",
+    "confirmed": "Your email is verified.",
+    "linkBad": "This link is invalid or has expired.",
+    "goHome": "Go to home",
+    "pleaseSignIn": "Please <a>sign in</a> to verify your email.",
+    "alreadyVerified": "Your email is already verified.",
+    "enterCode": "Enter the 6-digit code we sent to <b>{{email}}</b>.",
+    "code6Label": "6-digit code",
+    "verifyBtn": "Verify",
+    "sendNewIn": "Send a new code in {{s}}s",
+    "sending": "Sending...",
+    "sendNew": "Send a new code",
+    "sentReset": "If that email exists, we sent a reset link.",
+    "pwUpdated": "Your password has been updated."
   }
 }
