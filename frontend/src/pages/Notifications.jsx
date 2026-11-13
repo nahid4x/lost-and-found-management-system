@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Glass, Button, Empty, Skeleton, Reveal } from '../components/ui.jsx';
 import { useLive } from '../context/Live.jsx';
 import { useToast } from '../context/Toast.jsx';
@@ -14,6 +15,7 @@ function Toggle({ label, checked, onChange }) {
 }
 
 export default function Notifications() {
+  const { t } = useTranslation();
   const { refreshCounts, socket } = useLive();
   const toast = useToast();
   const [items, setItems] = useState(null);
@@ -31,24 +33,24 @@ export default function Notifications() {
 
   return (
     <div className="container">
-      <Reveal><div className="row"><h1 style={{ margin: 0, fontSize: '2.2rem' }}>Notifications</h1><span className="spacer" /><Button size="sm" onClick={markAll}>Mark all read</Button></div></Reveal>
+      <Reveal><div className="row"><h1 style={{ margin: 0, fontSize: '2.2rem' }}>{t('notif.title')}</h1><span className="spacer" /><Button size="sm" onClick={markAll}>{t('notif.markAll')}</Button></div></Reveal>
       <div className="grid two" style={{ marginTop: 18, alignItems: 'start' }}>
         <div className="col">
-          {!items ? <Skeleton h={200} /> : !items.length ? <Empty icon="🔔" title="All quiet">Matches, claims and messages will appear here instantly.</Empty> : items.map((n) => (
+          {!items ? <Skeleton h={200} /> : !items.length ? <Empty icon="🔔" title={t('notif.quietTitle')}>{t('notif.quietText')}</Empty> : items.map((n) => (
             <Glass key={n.id} pad hover as={Link} to={linkFor(n)} onClick={() => markOne(n)} style={{ color: 'inherit', opacity: n.readAt ? 0.7 : 1, borderLeft: n.readAt ? undefined : '4px solid var(--teal)' }}>
               <div className="row"><span style={{ fontSize: '1.5rem' }} aria-hidden>{ICON[n.type] ?? '🔔'}</span><div style={{ flex: 1 }}><strong>{n.title}</strong><div className="muted small">{n.body}</div></div><span className="faint small">{timeAgo(n.createdAt)}</span></div>
             </Glass>
           ))}
         </div>
-        <Glass pad as="section" aria-label="Notification preferences"><h3>Preferences</h3>
+        <Glass pad as="section" aria-label={t('notif.prefsLabel')}><h3>{t('notif.prefs')}</h3>
           {!prefs ? <Skeleton h={160} /> : (
             <div className="col">
-              <strong className="small muted">In-app</strong>
-              {['match', 'claim', 'message'].map((k) => <Toggle key={k} label={`${k[0].toUpperCase()}${k.slice(1)} alerts`} checked={prefs.inApp[k]} onChange={(v) => savePref('inApp', k, v)} />)}
-              <strong className="small muted" style={{ marginTop: 8 }}>Email</strong>
-              {['match', 'claim', 'message'].map((k) => <Toggle key={k} label={`${k[0].toUpperCase()}${k.slice(1)} emails`} checked={prefs.email[k]} onChange={(v) => savePref('email', k, v)} />)}
-              <Toggle label="Also email me while I am online" checked={prefs.emailWhenOnline} onChange={(v) => savePref('emailWhenOnline', null, v)} />
-              <p className="hint">By default emails are only sent when you are offline.</p>
+              <strong className="small muted">{t('notif.inApp')}</strong>
+              {['match', 'claim', 'message'].map((k) => <Toggle key={k} label={t(`notif.alert_${k}`)} checked={prefs.inApp[k]} onChange={(v) => savePref('inApp', k, v)} />)}
+              <strong className="small muted" style={{ marginTop: 8 }}>{t('notif.email')}</strong>
+              {['match', 'claim', 'message'].map((k) => <Toggle key={k} label={t(`notif.email_${k}`)} checked={prefs.email[k]} onChange={(v) => savePref('email', k, v)} />)}
+              <Toggle label={t('notif.emailOnline')} checked={prefs.emailWhenOnline} onChange={(v) => savePref('emailWhenOnline', null, v)} />
+              <p className="hint">{t('notif.emailHint')}</p>
             </div>
           )}
         </Glass>
