@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Glass, Button, Chip, Modal, Field, Skeleton, Empty, Reveal } from '../components/ui.jsx';
 import { Gallery } from '../components/Gallery.jsx';
 import { Dropzone } from '../components/Dropzone.jsx';
@@ -13,6 +14,7 @@ import { api } from '../lib/api.js';
 import { catLabel, catEmoji, fmtDate, timeAgo, errMsg } from '../lib/util.js';
 
 function ClaimModal({ item, open, onClose }) {
+  const { t } = useTranslation();
   const toast = useToast();
   const nav = useNavigate();
   const [form, setForm] = useState(null); // { questions, verification:[{id,type}], requiresMessage }
@@ -37,25 +39,25 @@ function ClaimModal({ item, open, onClose }) {
       if (message.trim()) f.append('message', message.trim());
       proofs.forEach((p) => f.append('proofs', p));
       await api.upload('/claims/', f);
-      toast.success('Submitted. The finder will review your answers.'); onClose(); nav('/claims');
+      toast.success(t('detail.submitted')); onClose(); nav('/claims');
     } catch (err) { setError(errMsg(err)); } finally { setBusy(false); }
   };
   return (
-    <Modal open={open} onClose={onClose} title="Verify ownership" wide>
+    <Modal open={open} onClose={onClose} title={t('detail.verifyTitle')} wide>
       {!form && !error && <Skeleton h={160} />}
       {error && <p className="err" role="alert">{error}</p>}
       {form && (
         <form className="col" onSubmit={submit}>
-          <p className="muted">{hasQuestions ? 'Answer the finder’s private questions. Only the finder sees your answers, and you submit them once, so answer carefully. You will not be shown whether they were right.' : 'The finder did not set private questions. Explain why this item is yours, with details only the owner would know.'}</p>
-          {hasQuestions && <p className="hint">Leave a question blank if you do not know it: blank answers count as unanswered and can never raise your match.</p>}
+          <p className="muted">{hasQuestions ? t('detail.qIntro') : t('detail.noQIntro')}</p>
+          {hasQuestions && <p className="hint">{t('detail.blankHint')}</p>}
           {form.questions.map((q, i) => (
             <Field key={i} as={form.verification?.[i]?.type === 'number' ? 'input' : 'textarea'} label={q} value={answers[i] ?? ''} maxLength={500} autoComplete="off"
-              inputMode={form.verification?.[i]?.type === 'number' ? 'decimal' : undefined} hint={form.verification?.[i]?.type === 'number' ? 'Enter a number, e.g. 2500' : undefined}
+              inputMode={form.verification?.[i]?.type === 'number' ? 'decimal' : undefined} hint={form.verification?.[i]?.type === 'number' ? t('detail.numHint') : undefined}
               onChange={(e) => setAnswers((a) => a.map((x, k) => (k === i ? e.target.value : x)))} />
           ))}
-          <Field as="textarea" label={hasQuestions ? 'Anything else that shows it is yours? (optional)' : 'Why is this yours?'} value={message} maxLength={1000} onChange={(e) => setMessage(e.target.value)} hint={hasQuestions ? undefined : `${message.trim().length}/10 characters minimum`} />
-          <div><strong>Proof photos (optional)</strong><p className="hint">Receipts, serial numbers, an older photo of the item. Visible only to the finder and stored privately.</p><Dropzone files={proofs} onChange={setProofs} max={3} label="Add proof photos" /></div>
-          <div className="row"><span className="spacer" /><Button type="button" onClick={onClose}>Cancel</Button><Button variant="primary" loading={busy} disabled={!valid}>Submit for review</Button></div>
+          <Field as="textarea" label={hasQuestions ? t('detail.elseOpt') : t('detail.whyYours')} value={message} maxLength={1000} onChange={(e) => setMessage(e.target.value)} hint={hasQuestions ? undefined : t('detail.minChars', { n: message.trim().length })} />
+          <div><strong>{t('detail.proofTitle')}</strong><p className="hint">{t('detail.proofHint')}</p><Dropzone files={proofs} onChange={setProofs} max={3} label={t('detail.addProof')} /></div>
+          <div className="row"><span className="spacer" /><Button type="button" onClick={onClose}>{t('common.cancel')}</Button><Button variant="primary" loading={busy} disabled={!valid}>{t('detail.submitReview')}</Button></div>
         </form>
       )}
     </Modal>
@@ -64,6 +66,7 @@ function ClaimModal({ item, open, onClose }) {
 
 /** Owner-only: manage the private questions + answers of a found report. Answers load only when asked for. */
 function VerificationPanel({ item, onChanged }) {
+  const { t } = useTranslation();
   const toast = useToast();
   const [shown, setShown] = useState(null); // answers, loaded on demand
   const [editing, setEditing] = useState(null);
@@ -86,30 +89,31 @@ function VerificationPanel({ item, onChanged }) {
     setErrors(errs);
     if (Object.keys(errs).length) return;
     setBusy(true);
-    try { await api.put(`/items/${item.id}/verification`, { verification: toPayload(editing) }); toast.success('Verification questions saved'); setEditing(null); setShown(null); onChanged?.(); }
+    try { await api.put(`/items/${item.id}/verification`, { verification: toPayload(editing) }); toast.success(t('detail.saved')); setEditing(null); setShown(null); onChanged?.(); }
     catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };
   return (
     <Glass pad>
-      <div className="row"><h3 style={{ margin: 0 }}>🔒 Private verification</h3><span className="spacer" />
-        {!legacy && !shown && <Button size="sm" onClick={reveal}>Show answers</Button>}{shown && <Button size="sm" onClick={() => setShown(null)}>Hide answers</Button>}
-        <Button size="sm" onClick={edit} disabled={locked}>{legacy ? 'Add questions' : 'Edit'}</Button></div>
-      {locked && <p className="hint">Locked: a claim has been submitted, so the questions can no longer change.</p>}
-      {legacy ? <p className="muted small">{item.questions?.length ? 'This report has questions but no stored answers, so claims need manual review. Add answers to get an automatic match score.' : 'No private questions. Add some so you can check claimants more reliably.'}</p> : (
+      <div className="row"><h3 style={{ margin: 0 }}>{t('detail.vpTitle')}</h3><span className="spacer" />
+        {!legacy && !shown && <Button size="sm" onClick={reveal}>{t('detail.showAnswers')}</Button>}{shown && <Button size="sm" onClick={() => setShown(null)}>{t('detail.hideAnswers')}</Button>}
+        <Button size="sm" onClick={edit} disabled={locked}>{legacy ? t('detail.add') : t('detail.edit')}</Button></div>
+      {locked && <p className="hint">{t('detail.locked')}</p>}
+      {legacy ? <p className="muted small">{item.questions?.length ? t('detail.legacyQ') : t('detail.legacyNone')}</p> : (
         <ol className="muted" style={{ paddingLeft: 20 }}>{list.map((q, i) => (
-          <li key={q.id}>{q.question} <span className="faint small">({q.type}, importance {q.weight})</span>
-            {shown && <div style={{ color: 'var(--text)' }}>Answer: <strong>{shown[i]?.answer}</strong></div>}</li>
+          <li key={q.id}>{q.question} <span className="faint small">{t('detail.typeImp', { type: t(`verif.type_${q.type}`, { defaultValue: q.type }), weight: q.weight })}</span>
+            {shown && <div style={{ color: 'var(--text)' }}>{t('detail.answer')} <strong>{shown[i]?.answer}</strong></div>}</li>
         ))}</ol>
       )}
-      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title="Private verification questions" wide>
+      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title={t('detail.editTitle')} wide>
         {editing && <><VerificationEditor entries={editing} onChange={setEditing} category={item.category} errors={errors} />
-          <div className="row" style={{ marginTop: 12 }}><span className="spacer" /><Button onClick={() => setEditing(null)}>Cancel</Button><Button variant="primary" loading={busy} onClick={save}>Save</Button></div></>}
+          <div className="row" style={{ marginTop: 12 }}><span className="spacer" /><Button onClick={() => setEditing(null)}>{t('common.cancel')}</Button><Button variant="primary" loading={busy} onClick={save}>{t('detail.save')}</Button></div></>}
       </Modal>
     </Glass>
   );
 }
 
 export default function ItemDetail() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const { user } = useAuth();
   const toast = useToast();
@@ -120,38 +124,38 @@ export default function ItemDetail() {
   useEffect(() => { setItem(undefined); load(); }, [load, user?.id]);
 
   if (item === undefined) return <div className="container"><Skeleton h={420} /></div>;
-  if (item === null) return <div className="container"><Empty icon="🫥" title="Report not found" action={<Link to="/" className="btn primary">Back home</Link>}>It may have been removed or is no longer public.</Empty></div>;
+  if (item === null) return <div className="container"><Empty icon="🫥" title={t('detail.notFoundTitle')} action={<Link to="/" className="btn primary">{t('detail.backHome')}</Link>}>{t('detail.notFoundText')}</Empty></div>;
 
   const canClaim = user && item.type === 'found' && !item.mine && ['open', 'matched', 'claimed'].includes(item.status);
-  const close = async () => { try { await api.post(`/items/${item.id}/close`); toast.success('Report closed'); load(); } catch (e) { toast.error(errMsg(e)); } };
+  const close = async () => { try { await api.post(`/items/${item.id}/close`); toast.success(t('detail.reportClosed')); load(); } catch (e) { toast.error(errMsg(e)); } };
 
   return (
     <div className="container">
       <Reveal>
-        <div className="row" style={{ marginBottom: 12 }}><Chip kind={item.type} /><Chip kind={item.status} /><span className="muted">{catEmoji(item.category)} {catLabel(item.category)}</span><span className="faint">· posted {timeAgo(item.createdAt)} by {item.ownerName}</span></div>
+        <div className="row" style={{ marginBottom: 12 }}><Chip kind={item.type} /><Chip kind={item.status} /><span className="muted">{catEmoji(item.category)} {catLabel(item.category)}</span><span className="faint">{t('detail.postedBy', { time: timeAgo(item.createdAt), name: item.ownerName })}</span></div>
         <h1 style={{ fontSize: 'clamp(1.8rem,4vw,2.6rem)' }}>{item.title}</h1>
         <div className="grid two" style={{ alignItems: 'start' }}>
           <div className="col"><Gallery images={item.images} category={item.category} /></div>
           <div className="col">
-            <Glass pad><h3>Details</h3><p style={{ whiteSpace: 'pre-wrap' }}>{item.description}</p>
-              <div className="muted small">📅 {item.type === 'lost' ? 'Lost' : 'Found'} on {fmtDate(item.date)} · 📍 {item.area.label}</div></Glass>
-            <Glass pad><h3>Status</h3><Timeline status={item.status} history={item.history} /></Glass>
+            <Glass pad><h3>{t('detail.detailsTitle')}</h3><p style={{ whiteSpace: 'pre-wrap' }}>{item.description}</p>
+              <div className="muted small">{t(item.type === 'lost' ? 'detail.lostOn' : 'detail.foundOn', { date: fmtDate(item.date), place: item.area.label })}</div></Glass>
+            <Glass pad><h3>{t('detail.statusTitle')}</h3><Timeline status={item.status} history={item.history} /></Glass>
             {item.location ? (
-              <Glass pad><h3>🔓 Exact location &amp; handover</h3>
-                {item.heldAt && <p>📦 Held at: <strong>{item.heldAt}</strong></p>}
-                {item.contactNote && <p>☎️ Contact: <strong>{item.contactNote}</strong></p>}
+              <Glass pad><h3>{t('detail.exactTitle')}</h3>
+                {item.heldAt && <p>{t('detail.heldAt')} <strong>{item.heldAt}</strong></p>}
+                {item.contactNote && <p>{t('detail.contact')} <strong>{item.contactNote}</strong></p>}
                 <ApproxMap lat={item.location.lat} lng={item.location.lng} exact />
-                {!item.mine && <div className="row" style={{ marginTop: 12 }}><Link to="/messages" className="btn primary">💬 Open chat</Link><Link to="/claims" className="btn">Mark as returned</Link></div>}
+                {!item.mine && <div className="row" style={{ marginTop: 12 }}><Link to="/messages" className="btn primary">{t('detail.openChat')}</Link><Link to="/claims" className="btn">{t('detail.markReturned')}</Link></div>}
               </Glass>
             ) : (
-              <Glass pad><h3>Approximate area</h3><ApproxMap lat={item.area.lat} lng={item.area.lng} />
-                <p className="hint" style={{ marginTop: 8 }}>The exact spot{item.type === 'found' ? ', where the item is held and the finder’s contact' : ''} is only shared with the verified owner.</p></Glass>
+              <Glass pad><h3>{t('detail.approxTitle')}</h3><ApproxMap lat={item.area.lat} lng={item.area.lng} />
+                <p className="hint" style={{ marginTop: 8 }}>{item.type === 'found' ? t('detail.areaHintFound') : t('detail.areaHintLost')}</p></Glass>
             )}
             <div className="row">
-              {canClaim && <Button variant="primary" onClick={() => setClaiming(true)}>🙋 Verify ownership & claim</Button>}
-              {!user && item.type === 'found' && <Button variant="primary" onClick={() => nav(`/login?next=/items/${item.id}`)}>Sign in to claim</Button>}
-              {item.mine && !['verified', 'returned', 'closed'].includes(item.status) && <Button onClick={close}>Close report</Button>}
-              {item.mine && item.type === 'found' && <Link to="/claims" className="btn">Review claims</Link>}
+              {canClaim && <Button variant="primary" onClick={() => setClaiming(true)}>{t('detail.claimBtn')}</Button>}
+              {!user && item.type === 'found' && <Button variant="primary" onClick={() => nav(`/login?next=/items/${item.id}`)}>{t('detail.signInClaim')}</Button>}
+              {item.mine && !['verified', 'returned', 'closed'].includes(item.status) && <Button onClick={close}>{t('detail.closeReport')}</Button>}
+              {item.mine && item.type === 'found' && <Link to="/claims" className="btn">{t('detail.reviewClaims')}</Link>}
             </div>
           </div>
         </div>
