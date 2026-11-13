@@ -1,6 +1,7 @@
 import '../styles/chat.css';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Glass, Button, Empty, Skeleton } from '../components/ui.jsx';
 import { useAuth } from '../context/Auth.jsx';
 import { useLive } from '../context/Live.jsx';
@@ -8,8 +9,6 @@ import { useCall } from '../context/Call.jsx';
 import { useToast } from '../context/Toast.jsx';
 import { api, getToken, refresh } from '../lib/api.js';
 import { errMsg, fmtTime, initials, timeAgo } from '../lib/util.js';
-
-const tick = (m) => (m.pending ? '🕓' : m.failed ? '⚠️' : m.readAt ? <span className="tick read" title="Read">✓✓</span> : m.deliveredAt ? '✓✓' : '✓');
 
 /* ---------- icons (one consistent line style) ---------- */
 const Svg = ({ children }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>;
@@ -19,22 +18,25 @@ const ClipIcon = () => <Svg><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49
 const SendIcon = () => <Svg><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></Svg>;
 const TrashIcon = () => <Svg><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></Svg>;
 
-const Avatar = ({ name, online }) => (
-  <span className="avatar-wrap">
-    <span className="avatar">{initials(name)}</span>
-    <span className={`online-dot ${online ? 'on' : ''}`} role="img" aria-label={online ? 'Online' : 'Offline'} />
-  </span>
-);
+const Avatar = ({ name, online }) => {
+  const { t } = useTranslation();
+  return (
+    <span className="avatar-wrap">
+      <span className="avatar">{initials(name)}</span>
+      <span className={`online-dot ${online ? 'on' : ''}`} role="img" aria-label={online ? t('chat.online') : t('chat.offline')} />
+    </span>
+  );
+};
 
 /** "Today", "Yesterday" or a short date, used for the separators between days in a thread. */
 const dayKey = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
-function dayLabel(iso) {
+function dayLabel(iso, t, lng) {
   const d = new Date(iso);
   const now = new Date();
   const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  if (dayKey(iso) === dayKey(now)) return 'Today';
-  if (dayKey(iso) === dayKey(yest)) return 'Yesterday';
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
+  if (dayKey(iso) === dayKey(now)) return t('chat.today');
+  if (dayKey(iso) === dayKey(yest)) return t('chat.yesterday');
+  return d.toLocaleDateString(lng?.startsWith('bn') ? 'bn-BD' : undefined, { day: 'numeric', month: 'short', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' });
 }
 
 /** Shrinks a picture to a JPEG of at most ~900 KB (max 1280 px). Re-encoding also drops EXIF/location data. */
@@ -59,6 +61,7 @@ async function compressImage(file) {
 
 /** A private chat photo. It is fetched with the login token (so only the two people can see it) and shown from a local blob. */
 function ChatImage({ m, convId }) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState(m.localUrl ?? null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -76,12 +79,13 @@ function ChatImage({ m, convId }) {
     })();
     return () => { dead = true; if (obj) URL.revokeObjectURL(obj); };
   }, [m.localUrl, m.image?.id, convId]);
-  if (failed) return <span className="faint small">📷 Photo unavailable</span>;
+  if (failed) return <span className="faint small">{t('chat.photoUnavailable')}</span>;
   if (!url) return <Skeleton h={120} />;
-  return <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt="Photo sent in chat" style={{ display: 'block', maxWidth: 260, width: '100%', borderRadius: 12 }} /></a>;
+  return <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt={t('chat.photoAlt')} style={{ display: 'block', maxWidth: 260, width: '100%', borderRadius: 12 }} /></a>;
 }
 
 export default function Messages() {
+  const { t, i18n } = useTranslation();
   const { id: activeId } = useParams();
   const nav = useNavigate();
   const { user } = useAuth();
@@ -101,6 +105,10 @@ export default function Messages() {
   const active = convs?.find((c) => c.id === activeId);
   const peerIds = useMemo(() => (convs ?? []).map((c) => c.other.id).join(','), [convs]);
 
+  // System-made messages (calls, photos) are stored in English in the database; show them in the chosen language.
+  const tr = (s) => ({ 'Voice call': t('chat.voiceCall'), 'Video call': t('chat.videoCall'), '📷 Photo': t('chat.photoMsg') }[s] ?? s);
+  const tick = (m) => (m.pending ? '🕓' : m.failed ? '⚠️' : m.readAt ? <span className="tick read" title={t('chat.read')}>✓✓</span> : m.deliveredAt ? '✓✓' : '✓');
+
   const loadConvs = useCallback(() => api.get('/realtime/conversations').then((d) => setConvs(d.conversations)).catch(() => setConvs([])), []);
   useEffect(() => { loadConvs(); }, [loadConvs]);
   useEffect(() => { if (convs?.length && !activeId && window.innerWidth > 780) nav(`/messages/${convs[0].id}`, { replace: true }); }, [convs, activeId, nav]);
@@ -112,7 +120,7 @@ export default function Messages() {
   useEffect(() => {
     if (!activeId) { setMsgs([]); return; }
     setLoading(true); setMsgs([]);
-    api.get(`/realtime/conversations/${activeId}/messages?limit=60`).then((d) => { setMsgs(d.messages); setLoading(false); setTimeout(() => scrollDown(false), 30); markRead(); }).catch(() => { setLoading(false); toast.error('Could not load messages'); });
+    api.get(`/realtime/conversations/${activeId}/messages?limit=60`).then((d) => { setMsgs(d.messages); setLoading(false); setTimeout(() => scrollDown(false), 30); markRead(); }).catch(() => { setLoading(false); toast.error(t('chat.loadFail')); });
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const merge = (list, m) => (list.some((x) => x.id === m.id || x.clientId === m.clientId) ? list.map((x) => (x.clientId === m.clientId || x.id === m.id ? { ...x, ...m, pending: false, failed: false } : x)) : [...list, m]);
@@ -144,10 +152,10 @@ export default function Messages() {
   useEffect(() => {
     if (!socket) return undefined;
     const timers = {};
-    const onTyping = (t) => {
-      clearTimeout(timers[t.conversationId]);
-      setTypingIn((x) => ({ ...x, [t.conversationId]: t.typing }));
-      if (t.typing) timers[t.conversationId] = setTimeout(() => setTypingIn((x) => ({ ...x, [t.conversationId]: false })), 4000);
+    const onTyping = (ev) => {
+      clearTimeout(timers[ev.conversationId]);
+      setTypingIn((x) => ({ ...x, [ev.conversationId]: ev.typing }));
+      if (ev.typing) timers[ev.conversationId] = setTimeout(() => setTypingIn((x) => ({ ...x, [ev.conversationId]: false })), 4000);
     };
     const onPresence = ({ userId, online: on }) => setOnline((s) => { const n = new Set(s); if (on) n.add(userId); else n.delete(userId); return n; });
     socket.on('typing', onTyping); socket.on('presence', onPresence);
@@ -180,13 +188,13 @@ export default function Messages() {
     else setMsgs((l) => l.map((m) => (m.clientId === clientId ? { ...m, failed: false, pending: true } : m)));
     socket.emit('message:send', { conversationId: activeId, text: body, clientId }, (ack) => {
       if (ack?.ok) { setMsgs((l) => merge(l, ack.message)); setConvs((c) => c?.map((x) => (x.id === activeId ? { ...x, lastMessage: { text: ack.message.text, sender: user.id, createdAt: ack.message.createdAt }, lastMessageAt: ack.message.createdAt } : x))); }
-      else { setMsgs((l) => l.map((m) => (m.clientId === clientId ? { ...m, pending: false, failed: true } : m))); toast.error(ack?.error === 'rate_limited' ? 'Slow down a little' : 'Message not sent'); }
+      else { setMsgs((l) => l.map((m) => (m.clientId === clientId ? { ...m, pending: false, failed: true } : m))); toast.error(ack?.error === 'rate_limited' ? t('chat.slowDown') : t('chat.notSent')); }
     });
   };
 
   const sendImage = async (file) => {
     if (!file || !activeId || !socket) return;
-    if (!file.type.startsWith('image/')) { toast.error('Please choose a picture'); return; }
+    if (!file.type.startsWith('image/')) { toast.error(t('chat.choosePic')); return; }
     setUploading(true);
     const tempId = crypto.randomUUID();
     try {
@@ -199,24 +207,24 @@ export default function Messages() {
       setConvs((c) => c?.map((x) => (x.id === activeId ? { ...x, lastMessage: { text: r.message.text, sender: user.id, createdAt: r.message.createdAt }, lastMessageAt: r.message.createdAt } : x)));
     } catch (err) {
       setMsgs((l) => l.filter((x) => x.id !== tempId));
-      toast.error(err?.message === 'decode' ? 'Could not read this picture' : err?.message === 'too_large' ? 'Picture is too large' : errMsg(err));
+      toast.error(err?.message === 'decode' ? t('chat.cantRead') : err?.message === 'too_large' ? t('chat.tooLarge') : errMsg(err));
     } finally { setUploading(false); }
   };
 
   const deleteMsg = (m) => {
-    if (!window.confirm('Delete this message for everyone?')) return;
+    if (!window.confirm(t('chat.confirmDeleteMsg'))) return;
     socket.emit('message:delete', { conversationId: activeId, messageId: m.id }, (ack) => {
-      if (ack?.ok) applyDeleted(m.id); else toast.error('Could not delete the message');
+      if (ack?.ok) applyDeleted(m.id); else toast.error(t('chat.delFail'));
     });
   };
 
   const deleteChat = async () => {
-    if (!active || !window.confirm(`Delete this chat with ${active.other.name}?\n\nIt is removed from your list only. ${active.other.name} keeps their copy.`)) return;
+    if (!active || !window.confirm(t('chat.confirmDeleteChat', { name: active.other.name }))) return;
     try {
       await api.post(`/realtime/conversations/${active.id}/hide`, {});
       setConvs((c) => c?.filter((x) => x.id !== active.id));
       nav('/messages');
-      toast.success('Chat deleted');
+      toast.success(t('chat.chatDeleted'));
     } catch (err) { toast.error(errMsg(err)); }
   };
 
@@ -232,13 +240,13 @@ export default function Messages() {
   const canDelete = (m) => m.sender === user.id && !m.pending && !m.failed && !m.deleted && m.kind !== 'call';
 
   if (!convs) return <div className="container"><Skeleton h={420} /></div>;
-  if (!convs.length) return <div className="container"><Empty icon="💬" title="No conversations yet">A private chat opens automatically when a claim is approved, so you can arrange the handover.</Empty></div>;
+  if (!convs.length) return <div className="container"><Empty icon="💬" title={t('chat.noneTitle')}>{t('chat.noneText')}</Empty></div>;
 
   const peerOnline = active ? online.has(active.other.id) : false;
   return (
     <div className="container" style={{ paddingBottom: 24 }}>
       <div className={`chat-layout ${activeId ? 'has-active' : ''}`}>
-        <Glass className="convs" role="list" aria-label="Conversations">
+        <Glass className="convs" role="list" aria-label={t('chat.convs')}>
           {convs.map((c) => {
             const mine = c.lastMessage?.sender === user.id;
             return (
@@ -247,7 +255,7 @@ export default function Messages() {
                 <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                   <strong>{c.other.name}</strong>
                   <span className="faint small" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: c.unread > 0 ? 700 : undefined }}>
-                    {typingIn[c.id] ? <span className="typing-now">typing…</span> : <>{c.item?.title}{c.lastMessage ? ` · ${mine ? 'You: ' : ''}${c.lastMessage.text}` : ''}</>}
+                    {typingIn[c.id] ? <span className="typing-now">{t('chat.typing')}</span> : <>{c.item?.title}{c.lastMessage ? ` · ${mine ? t('chat.you') : ''}${tr(c.lastMessage.text)}` : ''}</>}
                   </span>
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
@@ -259,52 +267,52 @@ export default function Messages() {
           })}
         </Glass>
         <Glass className="thread" style={{ position: 'relative' }}>
-          {!active ? <Empty icon="👈" title="Pick a conversation">Select a chat to start talking.</Empty> : (
+          {!active ? <Empty icon="👈" title={t('chat.pickTitle')}>{t('chat.pickText')}</Empty> : (
             <>
               <div className="thread-head">
-                <Button size="sm" className="back" onClick={() => nav('/messages')} aria-label="Back to conversations" style={{ display: window.innerWidth > 780 ? 'none' : undefined }}>←</Button>
+                <Button size="sm" className="back" onClick={() => nav('/messages')} aria-label={t('chat.back')} style={{ display: window.innerWidth > 780 ? 'none' : undefined }}>←</Button>
                 <Avatar name={active.other.name} online={peerOnline} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <strong>{active.other.name}</strong>
-                  <div className="faint small">{active.item?.title} · {!connected ? 'reconnecting…' : typingIn[active.id] ? <span className="typing-now">typing…</span> : peerOnline ? <span style={{ color: '#4ade80' }}>online</span> : 'offline'}</div>
+                  <div className="faint small">{active.item?.title} · {!connected ? t('chat.reconnecting') : typingIn[active.id] ? <span className="typing-now">{t('chat.typing')}</span> : peerOnline ? <span style={{ color: '#4ade80' }}>{t('chat.onlineLbl')}</span> : t('chat.offlineLbl')}</div>
                 </div>
-                <button type="button" className="chat-btn trash" onClick={deleteChat} aria-label="Delete this chat" title="Delete chat"><TrashIcon /></button>
-                <button type="button" className="chat-btn voice" onClick={() => call.start(active, 'audio')} disabled={call.busy} aria-label="Start voice call" title="Voice call"><PhoneIcon /></button>
-                <button type="button" className="chat-btn video" onClick={() => call.start(active, 'video')} disabled={call.busy} aria-label="Start video call" title="Video call"><VideoIcon /></button>
+                <button type="button" className="chat-btn trash" onClick={deleteChat} aria-label={t('chat.deleteChat')} title={t('chat.deleteChatTitle')}><TrashIcon /></button>
+                <button type="button" className="chat-btn voice" onClick={() => call.start(active, 'audio')} disabled={call.busy} aria-label={t('chat.startVoice')} title={t('chat.voiceCall')}><PhoneIcon /></button>
+                <button type="button" className="chat-btn video" onClick={() => call.start(active, 'video')} disabled={call.busy} aria-label={t('chat.startVideo')} title={t('chat.videoCall')}><VideoIcon /></button>
               </div>
-              <div className="msgs" ref={box} onScroll={(e) => { const el = e.currentTarget; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; if (atBottom.current) setUnseen(false); }} role="log" aria-live="polite" aria-label="Messages">
+              <div className="msgs" ref={box} onScroll={(e) => { const el = e.currentTarget; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; if (atBottom.current) setUnseen(false); }} role="log" aria-live="polite" aria-label={t('chat.messages')}>
                 {loading && <Skeleton h={60} />}
                 {msgs.map((m, k) => (
                   <Fragment key={m.id}>
                     {(k === 0 || dayKey(msgs[k - 1].createdAt) !== dayKey(m.createdAt)) && (
-                      <div className="faint small" style={{ alignSelf: 'center', padding: '4px 12px', margin: '8px 0', borderRadius: 999, background: 'rgba(255,255,255,0.08)' }}>{dayLabel(m.createdAt)}</div>
+                      <div className="faint small" style={{ alignSelf: 'center', padding: '4px 12px', margin: '8px 0', borderRadius: 999, background: 'rgba(255,255,255,0.08)' }}>{dayLabel(m.createdAt, t, i18n.language)}</div>
                     )}
                     <div
                       className={`bubble ${m.sender === user.id ? 'me' : ''} ${m.pending ? 'pending' : ''} ${m.deleted ? 'deleted' : ''}`}
                       style={{ whiteSpace: 'pre-wrap' }}
                     >
-                      {m.deleted ? <em className="faint">🚫 This message was deleted</em> : m.kind === 'image' ? <ChatImage m={m} convId={activeId} /> : m.text}
-                      <small>{fmtTime(m.createdAt)} {m.sender === user.id && tick(m)} {m.failed && <button className="btn sm" onClick={() => send(null, m)}>Retry</button>}{canDelete(m) && <button type="button" className="msg-x" onClick={() => deleteMsg(m)} aria-label="Delete message" title="Delete message"><TrashIcon /></button>}</small>
+                      {m.deleted ? <em className="faint">🚫 {t('chat.deletedMsg')}</em> : m.kind === 'image' ? <ChatImage m={m} convId={activeId} /> : m.kind === 'call' ? tr(m.text) : m.text}
+                      <small>{fmtTime(m.createdAt)} {m.sender === user.id && tick(m)} {m.failed && <button className="btn sm" onClick={() => send(null, m)}>{t('chat.retry')}</button>}{canDelete(m) && <button type="button" className="msg-x" onClick={() => deleteMsg(m)} aria-label={t('chat.deleteMsg')} title={t('chat.deleteMsg')}><TrashIcon /></button>}</small>
                     </div>
                   </Fragment>
                 ))}
               </div>
-              {unseen && <Button size="sm" variant="primary" style={{ position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)' }} onClick={() => { scrollDown(); setUnseen(false); }}>New messages ↓</Button>}
+              {unseen && <Button size="sm" variant="primary" style={{ position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)' }} onClick={() => { scrollDown(); setUnseen(false); }}>{t('chat.newMsgs')}</Button>}
               <div className="typing" aria-live="polite">
-                {typingIn[activeId] && <span className="typing-pill"><span className="dots" aria-hidden="true"><i /><i /><i /></span>{active.other.name} is typing…</span>}
+                {typingIn[activeId] && <span className="typing-pill"><span className="dots" aria-hidden="true"><i /><i /><i /></span>{t('chat.isTyping', { name: active.other.name })}</span>}
               </div>
               <form className="composer" onSubmit={send}>
                 <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { sendImage(e.target.files?.[0]); e.target.value = ''; }} />
-                <button type="button" className="chat-btn" disabled={uploading} onClick={() => fileRef.current?.click()} aria-label="Send a photo" title="Send a photo">{uploading ? '…' : <ClipIcon />}</button>
-                <label className="sr-only" htmlFor="msg">Message</label>
-                <textarea id="msg" ref={input} className="input" rows={1} style={{ resize: 'none', maxHeight: 120 }} placeholder="Write a message…" value={text} maxLength={2000} autoComplete="off" onChange={onType} onKeyDown={onKeyDown} />
-                <button className="send-btn" type="submit" disabled={!text.trim()} aria-label="Send message" title="Send"><SendIcon /></button>
+                <button type="button" className="chat-btn" disabled={uploading} onClick={() => fileRef.current?.click()} aria-label={t('chat.sendPhoto')} title={t('chat.sendPhoto')}>{uploading ? '…' : <ClipIcon />}</button>
+                <label className="sr-only" htmlFor="msg">{t('chat.messageLabel')}</label>
+                <textarea id="msg" ref={input} className="input" rows={1} style={{ resize: 'none', maxHeight: 120 }} placeholder={t('chat.placeholder')} value={text} maxLength={2000} autoComplete="off" onChange={onType} onKeyDown={onKeyDown} />
+                <button className="send-btn" type="submit" disabled={!text.trim()} aria-label={t('chat.sendMsg')} title={t('chat.sendTitle')}><SendIcon /></button>
               </form>
             </>
           )}
         </Glass>
       </div>
-      <p className="faint small center" style={{ marginTop: 8 }}>Last activity {active ? timeAgo(active.lastMessageAt) : ''}. Never share card numbers or passwords in chat.</p>
+      <p className="faint small center" style={{ marginTop: 8 }}>{t('chat.lastActivity', { time: active ? timeAgo(active.lastMessageAt) : '' })}</p>
     </div>
   );
 }
