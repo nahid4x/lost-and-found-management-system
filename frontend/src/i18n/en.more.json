@@ -169,7 +169,12 @@
     "placeholder": "Write a message…",
     "sendMsg": "Send message",
     "sendTitle": "Send",
-    "lastActivity": "Last activity {{time}}. Never share card numbers or passwords in chat."
+    "lastActivity": "Last activity {{time}}. Never share card numbers or passwords in chat.",
+    "voiceStart": "Type with your voice",
+    "voiceStop": "Stop listening",
+    "voiceDenied": "The microphone is blocked. Allow it in your browser settings and try again.",
+    "voiceNetwork": "Voice typing needs an internet connection.",
+    "voiceFail": "Voice typing did not work. Please try again."
   },
   "detail": {
     "submitted": "Submitted. The finder will review your answers.",

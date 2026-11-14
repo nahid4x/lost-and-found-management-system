@@ -73,3 +73,8 @@
 .msg-x svg { width: 13px; height: 13px; }
 .msg-x:hover { opacity: 1; background: rgba(251, 113, 133, 0.45); }
 .msg-x:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; opacity: 1; }
+
+/* Voice typing mic: red and pulsing while it is listening */
+.mic-btn.listening { background: #ef4444; border-color: #ef4444; color: #fff; animation: micPulse 1.3s ease-out infinite; }
+@keyframes micPulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 100% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); } }
+@media (prefers-reduced-motion: reduce) { .mic-btn.listening { animation: none; } }

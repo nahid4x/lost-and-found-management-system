@@ -7,6 +7,7 @@ import { useAuth } from '../context/Auth.jsx';
 import { useLive } from '../context/Live.jsx';
 import { useCall } from '../context/Call.jsx';
 import { useToast } from '../context/Toast.jsx';
+import VoiceInput from '../components/VoiceInput.jsx';
 import { api, getToken, refresh } from '../lib/api.js';
 import { errMsg, fmtTime, initials, timeAgo } from '../lib/util.js';
 
@@ -304,6 +305,7 @@ export default function Messages() {
               <form className="composer" onSubmit={send}>
                 <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { sendImage(e.target.files?.[0]); e.target.value = ''; }} />
                 <button type="button" className="chat-btn" disabled={uploading} onClick={() => fileRef.current?.click()} aria-label={t('chat.sendPhoto')} title={t('chat.sendPhoto')}>{uploading ? '…' : <ClipIcon />}</button>
+                <VoiceInput value={text} onChange={(v) => { setText(v); setTimeout(resize, 0); }} disabled={uploading} />
                 <label className="sr-only" htmlFor="msg">{t('chat.messageLabel')}</label>
                 <textarea id="msg" ref={input} className="input" rows={1} style={{ resize: 'none', maxHeight: 120 }} placeholder={t('chat.placeholder')} value={text} maxLength={2000} autoComplete="off" onChange={onType} onKeyDown={onKeyDown} />
                 <button className="send-btn" type="submit" disabled={!text.trim()} aria-label={t('chat.sendMsg')} title={t('chat.sendTitle')}><SendIcon /></button>
