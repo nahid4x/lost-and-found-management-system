@@ -10,6 +10,7 @@ import { useToast } from '../context/Toast.jsx';
 import VoiceInput from '../components/VoiceInput.jsx';
 import { api, getToken, refresh } from '../lib/api.js';
 import { errMsg, fmtTime, initials, timeAgo } from '../lib/util.js';
+import { VoiceMessage, VoiceRecorder, canRecord } from '../components/VoiceMessage.jsx';
 
 /* ---------- icons (one consistent line style) ---------- */
 const Svg = ({ children }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>;
@@ -107,7 +108,7 @@ export default function Messages() {
   const peerIds = useMemo(() => (convs ?? []).map((c) => c.other.id).join(','), [convs]);
 
   // System-made messages (calls, photos) are stored in English in the database; show them in the chosen language.
-  const tr = (s) => ({ 'Voice call': t('chat.voiceCall'), 'Video call': t('chat.videoCall'), '📷 Photo': t('chat.photoMsg') }[s] ?? s);
+  const tr = (s) => ({ 'Voice call': t('chat.voiceCall'), 'Video call': t('chat.videoCall'), '📷 Photo': t('chat.photoMsg'), '🎤 Voice message': t('chat.voiceMsg') }[s] ?? s);
   const tick = (m) => (m.pending ? '🕓' : m.failed ? '⚠️' : m.readAt ? <span className="tick read" title={t('chat.read')}>✓✓</span> : m.deliveredAt ? '✓✓' : '✓');
 
   const loadConvs = useCallback(() => api.get('/realtime/conversations').then((d) => setConvs(d.conversations)).catch(() => setConvs([])), []);
@@ -126,7 +127,7 @@ export default function Messages() {
 
   const merge = (list, m) => (list.some((x) => x.id === m.id || x.clientId === m.clientId) ? list.map((x) => (x.clientId === m.clientId || x.id === m.id ? { ...x, ...m, pending: false, failed: false } : x)) : [...list, m]);
   const applyDeleted = useCallback((id) => {
-    setMsgs((l) => l.map((x) => (x.id === id ? { ...x, deleted: true, text: 'This message was deleted', kind: 'text', image: null, localUrl: null } : x)));
+    setMsgs((l) => l.map((x) => (x.id === id ? { ...x, deleted: true, text: 'This message was deleted', kind: 'text', image: null, voice: null, localUrl: null } : x)));
     loadConvs();
   }, [loadConvs]);
 
@@ -212,6 +213,22 @@ export default function Messages() {
     } finally { setUploading(false); }
   };
 
+  const sendVoice = async (blob, dur, peaks) => {
+    if (!activeId || !socket) return;
+    const tempId = crypto.randomUUID();
+    const localUrl = URL.createObjectURL(blob);
+    setMsgs((l) => [...l, { id: tempId, clientId: tempId, conversation: activeId, sender: user.id, text: '🎤 Voice message', kind: 'voice', voice: { durationSec: dur, peaks }, localUrl, createdAt: new Date().toISOString(), pending: true }]);
+    setTimeout(scrollDown, 30);
+    try {
+      const r = await api.uploadRaw(`/realtime/conversations/${activeId}/voice?dur=${dur}${peaks ? `&peaks=${peaks}` : ''}&sid=${encodeURIComponent(socket.id)}`, blob);
+      setMsgs((l) => l.map((x) => (x.id === tempId ? { ...r.message, localUrl } : x)));
+      setConvs((c) => c?.map((x) => (x.id === activeId ? { ...x, lastMessage: { text: r.message.text, sender: user.id, createdAt: r.message.createdAt }, lastMessageAt: r.message.createdAt } : x)));
+    } catch (err) {
+      setMsgs((l) => l.filter((x) => x.id !== tempId));
+      toast.error(err?.status === 413 ? t('chat.tooLarge') : errMsg(err));
+    }
+  };
+
   const deleteMsg = (m) => {
     if (!window.confirm(t('chat.confirmDeleteMsg'))) return;
     socket.emit('message:delete', { conversationId: activeId, messageId: m.id }, (ack) => {
@@ -292,7 +309,7 @@ export default function Messages() {
                       className={`bubble ${m.sender === user.id ? 'me' : ''} ${m.pending ? 'pending' : ''} ${m.deleted ? 'deleted' : ''}`}
                       style={{ whiteSpace: 'pre-wrap' }}
                     >
-                      {m.deleted ? <em className="faint">🚫 {t('chat.deletedMsg')}</em> : m.kind === 'image' ? <ChatImage m={m} convId={activeId} /> : m.kind === 'call' ? tr(m.text) : m.text}
+                      {m.deleted ? <em className="faint">🚫 {t('chat.deletedMsg')}</em> : m.kind === 'image' ? <ChatImage m={m} convId={activeId} /> : m.kind === 'voice' ? <VoiceMessage m={m} convId={activeId} /> : m.kind === 'call' ? tr(m.text) : m.text}
                       <small>{fmtTime(m.createdAt)} {m.sender === user.id && tick(m)} {m.failed && <button className="btn sm" onClick={() => send(null, m)}>{t('chat.retry')}</button>}{canDelete(m) && <button type="button" className="msg-x" onClick={() => deleteMsg(m)} aria-label={t('chat.deleteMsg')} title={t('chat.deleteMsg')}><TrashIcon /></button>}</small>
                     </div>
                   </Fragment>
@@ -308,7 +325,9 @@ export default function Messages() {
                 <VoiceInput value={text} onChange={(v) => { setText(v); setTimeout(resize, 0); }} disabled={uploading} />
                 <label className="sr-only" htmlFor="msg">{t('chat.messageLabel')}</label>
                 <textarea id="msg" ref={input} className="input" rows={1} style={{ resize: 'none', maxHeight: 120 }} placeholder={t('chat.placeholder')} value={text} maxLength={2000} autoComplete="off" onChange={onType} onKeyDown={onKeyDown} />
-                <button className="send-btn" type="submit" disabled={!text.trim()} aria-label={t('chat.sendMsg')} title={t('chat.sendTitle')}><SendIcon /></button>
+                {text.trim() || !canRecord()
+                  ? <button className="send-btn" type="submit" disabled={!text.trim()} aria-label={t('chat.sendMsg')} title={t('chat.sendTitle')}><SendIcon /></button>
+                  : <VoiceRecorder key={activeId} onSend={sendVoice} disabled={uploading} />}
               </form>
             </>
           )}

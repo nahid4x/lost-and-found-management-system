@@ -162,6 +162,45 @@ describe('chat', () => {
   });
 });
 
+describe('voice messages', () => {
+  const webm = (n = 400) => Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(n, 7)]);
+  const post = (id, name, body, type = 'audio/webm;codecs=opus', q = '?dur=5&peaks=0123456789012345678901234567890123456789') => request(app).post(`/conversations/${conv}/voice${q}`).set(H(id, name)).set('Content-Type', type).send(body);
+
+  it('stores a recording, tells the other person, and only the two of them can play it', async () => {
+    const bob = await connect(tok(B, 'Bob C'));
+    const got = once(bob, 'message:new');
+    const r = await post(A, 'Alice F', webm());
+    expect(r.status).toBe(201);
+    expect(r.body.message).toMatchObject({ kind: 'voice', sender: A, voice: { durationSec: 5, peaks: '0123456789012345678901234567890123456789' } });
+    expect((await got).voice.id).toBe(r.body.message.voice.id);
+    const play = (id, name) => request(app).get(`/conversations/${conv}/voice/${r.body.message.voice.id}`).set(H(id, name));
+    const ok = await play(B, 'Bob C');
+    expect(ok.status).toBe(200);
+    expect(ok.headers['content-type']).toContain('audio/webm');
+    expect(ok.headers['x-content-type-options']).toBe('nosniff');
+    expect((await play(C, 'Carl')).status).toBe(404);
+    expect((await request(app).get(`/conversations/${conv}/voice/${r.body.message.voice.id}`)).status).toBe(401);
+  });
+
+  it('refuses things that are not a recording, too long, or from outsiders', async () => {
+    expect((await post(A, 'Alice F', Buffer.alloc(400, 1))).status).toBe(400); // right header, wrong bytes
+    expect((await post(A, 'Alice F', webm(), 'audio/webm', '')).status).toBe(400); // no duration
+    expect((await post(A, 'Alice F', webm(), 'audio/webm', '?dur=9999')).status).toBe(400);
+    expect((await post(A, 'Alice F', webm(), 'audio/webm', '?dur=5&peaks=abc')).status).toBe(400); // waveform must be 16-64 digits
+    expect((await post(A, 'Alice F', webm(), 'text/plain')).status).toBe(400);
+    expect((await post(C, 'Carl', webm())).status).toBe(404);
+    expect((await post(A, 'Alice F', webm(1_600_000))).status).toBe(413);
+  });
+
+  it('the sender can delete it for everyone and the audio is removed', async () => {
+    const alice = await connect(tok(A, 'Alice F'));
+    const r = await post(A, 'Alice F', webm());
+    const ack = await emit(alice, 'message:delete', { conversationId: conv, messageId: r.body.message.id });
+    expect(ack.ok).toBe(true);
+    expect((await request(app).get(`/conversations/${conv}/voice/${r.body.message.voice.id}`).set(H(A, 'Alice F'))).status).toBe(404);
+  });
+});
+
 describe('calls (WebRTC signalling)', () => {
   it('ring -> accept -> offer/answer/ice relay -> end; only the two participants may signal', async () => {
     const a = await connect(tok(A, 'Alice F')); const b = await connect(tok(B, 'Bob C')); const c = await connect(tok(C, 'Mallory'));

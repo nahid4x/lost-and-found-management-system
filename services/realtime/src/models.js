@@ -17,9 +17,10 @@ const msgSchema = new Schema({
   conversation: { type: String, required: true },
   sender: { type: String, required: true },
   text: { type: String, required: true, maxlength: 2000 },
-  kind: { type: String, enum: ['text', 'call', 'image'], default: 'text' },
+  kind: { type: String, enum: ['text', 'call', 'image', 'voice'], default: 'text' },
   call: { type: Schema.Types.Mixed },
   image: { type: Schema.Types.Mixed },
+  voice: { type: Schema.Types.Mixed },
   clientId: { type: String, required: true },
   deliveredAt: Date, readAt: Date, deletedAt: Date,
 }, { timestamps: true });
@@ -36,6 +37,17 @@ const imageSchema = new Schema({
 }, { timestamps: true });
 export const ChatImage = mongoose.models.ChatImage || mongoose.model('ChatImage', imageSchema);
 
+// Voice messages are private too: same idea as photos (stored here, only served to the two participants).
+const voiceSchema = new Schema({
+  conversation: { type: String, required: true, index: true },
+  uploader: { type: String, required: true },
+  mime: { type: String, enum: ['audio/webm', 'audio/ogg', 'audio/mp4'], required: true },
+  size: { type: Number, required: true },
+  durationSec: { type: Number, required: true },
+  data: { type: Buffer, required: true, select: false },
+}, { timestamps: true });
+export const ChatVoice = mongoose.models.ChatVoice || mongoose.model('ChatVoice', voiceSchema);
+
 const callSchema = new Schema({
   conversation: { type: String, required: true, index: true },
   caller: { type: String, required: true }, callee: { type: String, required: true },
@@ -46,4 +58,4 @@ const callSchema = new Schema({
 export const Call = mongoose.models.Call || mongoose.model('Call', callSchema);
 
 export const pairKey = (a, b, itemId) => `${[a, b].sort().join(':')}:${itemId ?? ''}`;
-export const messageView = (m) => ({ id: String(m._id), conversation: m.conversation, sender: m.sender, text: m.text, clientId: m.clientId, deliveredAt: m.deliveredAt ?? null, readAt: m.readAt ?? null, createdAt: m.createdAt, kind: m.kind ?? 'text', call: m.call ?? null, image: m.image ?? null, deleted: Boolean(m.deletedAt) });
+export const messageView = (m) => ({ id: String(m._id), conversation: m.conversation, sender: m.sender, text: m.text, clientId: m.clientId, deliveredAt: m.deliveredAt ?? null, readAt: m.readAt ?? null, createdAt: m.createdAt, kind: m.kind ?? 'text', call: m.call ?? null, image: m.image ?? null, voice: m.voice ?? null, deleted: Boolean(m.deletedAt) });
