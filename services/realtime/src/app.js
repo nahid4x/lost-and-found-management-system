@@ -6,13 +6,16 @@ import { validate, objectId } from '@findit/shared/validate';
 import { makeLimiter } from '@findit/shared/ratelimit';
 import { notFound, badRequest } from '@findit/shared/errors';
 import { trusted } from '@findit/shared/db';
-import { Conversation, Message, ChatImage, Call, pairKey, messageView } from './models.js';
+import { Conversation, Message, ChatImage, ChatVoice, Call, pairKey, messageView } from './models.js';
 import { iceServers } from './ice.js';
 import { AccessToken } from 'livekit-server-sdk';
 
+const VOICE_MAX = 1_500_000; // bytes (about 2 minutes of speech)
+const VOICE_MAX_SEC = 120;
 const idParam = z.object({ id: objectId });
 const imgParams = z.object({ id: objectId, imgId: objectId });
-const sidQuery = z.object({ sid: z.string().regex(/^[\w-]{10,40}$/).optional() });
+const voiceParams = z.object({ id: objectId, voiceId: objectId });
+const sidQuery = z.object({ sid: z.string().regex(/^[\w-]{10,40}$/).optional(), dur: z.coerce.number().int().min(1).max(VOICE_MAX_SEC).optional(), peaks: z.string().regex(/^[0-9]{16,64}$/).optional() });
 const msgQuery = z.object({ after: objectId.optional(), before: objectId.optional(), limit: z.coerce.number().int().min(1).max(100).default(50) });
 const IMG_MAX = 900_000; // bytes; the browser shrinks photos to about this size before upload
 
@@ -20,6 +23,8 @@ export function createRealtimeApp({ env, logger, bus, redis = null, getIo = () =
   const { app, finish } = createBaseApp({ service: 'realtime', env, logger, redis });
   const auth = authenticate(env);
   const imgLimit = makeLimiter({ redis, windowMs: 60_000, limit: 15, prefix: 'rt:img', keyGenerator: (req) => `u:${req.user.id}` });
+
+  const voiceLimit = makeLimiter({ redis, windowMs: 60_000, limit: 15, prefix: 'rt:voice', keyGenerator: (req) => `u:${req.user.id}` });
 
   const otherOf = (c, uid) => c.participants.find((p) => p !== uid);
   // Messages from before the user deleted the chat stay hidden for them.
@@ -97,6 +102,49 @@ export function createRealtimeApp({ env, logger, bus, redis = null, getIo = () =
       if (!img) throw notFound('Photo not found');
       res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline' });
       res.send(img.data);
+    } catch (e) { next(e); }
+  });
+
+  // Voice message upload: raw audio from the browser's recorder. The kind is checked from the first bytes, not from what the client says.
+  const audioKind = (b) => {
+    if (b.length < 64) return null;
+    if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return 'audio/webm';
+    if (b.toString('latin1', 0, 4) === 'OggS') return 'audio/ogg';
+    if (b.toString('latin1', 4, 8) === 'ftyp') return 'audio/mp4';
+    return null;
+  };
+  app.post('/conversations/:id/voice', auth, voiceLimit, validate(idParam, 'params'), validate(sidQuery, 'query'), express.raw({ type: ['audio/webm', 'audio/ogg', 'audio/mp4'], limit: VOICE_MAX }), async (req, res, next) => {
+    try {
+      const c = await Conversation.findOne({ _id: req.params.id, participants: req.user.id });
+      if (!c) throw notFound('Conversation not found');
+      const buf = req.body;
+      const mime = Buffer.isBuffer(buf) && buf.length <= VOICE_MAX ? audioKind(buf) : null;
+      if (!mime || !req.query.dur) throw badRequest('Send a voice recording');
+      const dur = Number(req.query.dur);
+      const v = await ChatVoice.create({ conversation: String(c._id), uploader: req.user.id, mime, size: buf.length, durationSec: dur, data: buf });
+      const peer = otherOf(c, req.user.id);
+      const io = getIo();
+      const online = io ? (await io.in(`user:${peer}`).fetchSockets()).length > 0 : false;
+      const msg = await Message.create({ conversation: String(c._id), sender: req.user.id, kind: 'voice', text: '🎤 Voice message', voice: { id: String(v._id), durationSec: dur, ...(req.query.peaks ? { peaks: req.query.peaks } : {}) }, clientId: `voice:${v._id}`, deliveredAt: online ? new Date() : undefined });
+      await Conversation.updateOne({ _id: c._id }, { lastMessageAt: msg.createdAt, hiddenFor: [] });
+      const mv = messageView(msg);
+      if (c.hiddenFor?.includes(peer)) io?.to(`user:${peer}`).emit('conversation:new', view(c, peer));
+      io?.to(`user:${peer}`).emit('message:new', mv);
+      const mine = io?.to(`user:${req.user.id}`);
+      (req.query.sid ? mine?.except(req.query.sid) : mine)?.emit('message:new', mv);
+      await bus.publish('message.created', { conversationId: String(c._id), sender: req.user.id, senderName: req.user.name ?? 'Someone', recipient: peer });
+      res.status(201).json({ message: mv });
+    } catch (e) { next(e); }
+  });
+
+  app.get('/conversations/:id/voice/:voiceId', auth, validate(voiceParams, 'params'), async (req, res, next) => {
+    try {
+      const c = await Conversation.findOne({ _id: req.params.id, participants: req.user.id });
+      if (!c) throw notFound('Conversation not found');
+      const v = await ChatVoice.findOne({ _id: req.params.voiceId, conversation: String(c._id) }).select('+data');
+      if (!v) throw notFound('Voice message not found');
+      res.set({ 'Content-Type': v.mime, 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline' });
+      res.send(v.data);
     } catch (e) { next(e); }
   });
 

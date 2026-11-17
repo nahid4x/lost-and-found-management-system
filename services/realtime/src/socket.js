@@ -4,7 +4,7 @@ import { verifyAccess } from '@findit/shared/tokens';
 import { plainText } from '@findit/shared/sanitize';
 import { objectId } from '@findit/shared/validate';
 import { trusted } from '@findit/shared/db';
-import { Conversation, Message, ChatImage, Call, messageView } from './models.js';
+import { Conversation, Message, ChatImage, ChatVoice, Call, messageView } from './models.js';
 
 const MAX_SOCKETS_PER_USER = 5;
 const RING_TIMEOUT_MS = 45_000;
@@ -149,11 +149,12 @@ export function attachSocket({ httpServer, env, logger, bus, presence, adapter, 
     on('message:delete', deleteSchema, async ({ conversationId, messageId }) => {
       const c = await member(conversationId, me.id);
       if (!c) return { error: 'forbidden' };
-      const m = await Message.findOne({ _id: messageId, conversation: conversationId, sender: me.id, kind: trusted({ $in: ['text', 'image'] }) });
+      const m = await Message.findOne({ _id: messageId, conversation: conversationId, sender: me.id, kind: trusted({ $in: ['text', 'image', 'voice'] }) });
       if (!m) return { error: 'not_found' };
       if (!m.deletedAt) {
         if (m.kind === 'image' && m.image?.id) await ChatImage.deleteOne({ _id: m.image.id, conversation: conversationId });
-        await Message.updateOne({ _id: m._id }, { deletedAt: new Date(), text: 'This message was deleted', $unset: { image: 1 } });
+        if (m.kind === 'voice' && m.voice?.id) await ChatVoice.deleteOne({ _id: m.voice.id, conversation: conversationId });
+        await Message.updateOne({ _id: m._id }, { deletedAt: new Date(), text: 'This message was deleted', $unset: { image: 1, voice: 1 } });
         const payload = { conversationId, messageId: String(m._id) };
         io.to(room(other(c, me.id))).emit('message:deleted', payload);
         socket.to(room(me.id)).emit('message:deleted', payload); // sender's other tabs

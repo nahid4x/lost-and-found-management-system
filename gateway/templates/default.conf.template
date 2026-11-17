@@ -120,6 +120,7 @@ server {
     proxy_pass http://notify_up/;
   }
   location /api/realtime/ {
+    client_max_body_size 2m; # photos (<= 900 KB) and voice messages (<= 1.5 MB)
     limit_req zone=api burst=40 nodelay;
     include /etc/nginx/snippets/api-headers.conf;
     include /etc/nginx/snippets/proxy.conf;
