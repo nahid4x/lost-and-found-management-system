@@ -30,7 +30,7 @@ export function Navbar() {
 
   return (
     <header className="nav">
-      <Link to="/" className="brand" onClick={close}><img src="/favicon.svg" alt="" />FindIt</Link>
+      <Link to="/" className="brand" onClick={close}><img src="/logo.png" alt="" />FindIt</Link>
       <nav className={`nav-links ${open ? 'open' : ''}`} aria-label={t('nav.main')}>
         <NavLink to="/lost" onClick={close}>{t('nav.lost')}</NavLink>
         <NavLink to="/found" onClick={close}>{t('nav.found')}</NavLink>
