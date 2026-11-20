@@ -15,6 +15,7 @@ loc=$($C -o /dev/null -w '%{http_code} %{redirect_url}' "$HTTP_BASE/"); case "$l
 
 echo "== security headers (HTML) =="
 H=$(hdr "$BASE/")
+echo "$H" | sed 's/^/  | /'
 for h in strict-transport-security content-security-policy x-content-type-options x-frame-options referrer-policy permissions-policy cross-origin-opener-policy; do echo "$H" | grep -qi "^$h:" && ok "header $h" || bad "missing header $h"; done
 echo "$H" | grep -i '^content-security-policy' | grep -q "script-src 'self'" && ok "CSP script-src 'self' (no unsafe-inline/eval)" || bad "CSP script-src"
 echo "$H" | grep -i '^content-security-policy' | grep -Eq "unsafe-eval|script-src[^;]*unsafe-inline" && bad "CSP allows unsafe script" || ok "CSP has no unsafe script sources"
