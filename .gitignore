@@ -11,3 +11,4 @@ secrets/
 credentials*.json
 *.log
 .DS_Store
+Home.old.jsx
