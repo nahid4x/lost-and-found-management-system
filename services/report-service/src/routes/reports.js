@@ -18,6 +18,7 @@ const createLimiter = rateLimit({
 
 const view = (doc, isAdmin) => {
   const r = doc.toObject();
+  // eslint-disable-next-line no-unused-vars
   if (!isAdmin) r.timeline = r.timeline.map(({ internalNote, by, ...t }) => t);
   return r;
 };
