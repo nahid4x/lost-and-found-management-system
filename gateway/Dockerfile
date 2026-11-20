@@ -1,7 +1,9 @@
 # Gateway: Nginx (unprivileged, non-root). Only this container publishes host ports.
 FROM nginxinc/nginx-unprivileged:stable-alpine
 USER root
-RUN apk upgrade --no-cache
+RUN apk del --no-cache nginx-module-xslt nginx-module-geoip nginx-module-image-filter nginx-module-njs \
+    && apk upgrade --no-cache \
+    && apk add --no-cache --upgrade nginx
 RUN apk add --no-cache openssl && rm -f /etc/nginx/conf.d/default.conf
 COPY templates/default.conf.template /etc/nginx/templates/default.conf.template
 COPY snippets/ /etc/nginx/snippets/
