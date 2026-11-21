@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Play, Pause, Loader2 } from 'lucide-react';
 import { useToast } from '../context/Toast.jsx';
 import { getToken, refresh } from '../lib/api.js';
 
@@ -163,7 +164,7 @@ export function VoiceMessage({ m, convId }) {
   const bars = barsFor(m.voice?.peaks, m.voice?.id ?? m.id);
   return (
     <span className="voice-msg">
-      <button type="button" className="voice-play" onClick={toggle} disabled={busy} aria-label={playing ? t('chat.pauseVoice') : t('chat.playVoice')}>{busy ? '…' : playing ? '⏸' : '▶'}</button>
+      <button type="button" className="voice-play" onClick={toggle} disabled={busy} aria-label={playing ? t('chat.pauseVoice') : t('chat.playVoice')}>{busy ? <Loader2 size={18} className="spin" /> : playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}</button>
       <span className="voice-body">
         <span className="voice-wave" aria-hidden="true">
           {bars.map((v, k) => <i key={k} className={((k + 0.5) / bars.length) * 100 <= pct ? 'done' : ''} style={{ height: `${14 + v * 9}%` }} />)}

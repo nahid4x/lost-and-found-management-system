@@ -105,3 +105,4 @@
 
 /* "Voice message" preview in the chat list: a microphone icon instead of an emoji (stays inline so the long line still ends in "…") */
 .mic-prev svg { display: inline-block; vertical-align: -2px; margin-inline-end: 4px; }
+.bubble small svg { vertical-align: -2px; }

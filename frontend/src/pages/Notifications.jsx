@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Sparkles, User, MessageCircle, Package, Bell, BellOff } from 'lucide-react';
 import { Glass, Button, Empty, Skeleton, Reveal } from '../components/ui.jsx';
 import { useLive } from '../context/Live.jsx';
 import { useToast } from '../context/Toast.jsx';
 import { api } from '../lib/api.js';
 import { errMsg, timeAgo } from '../lib/util.js';
 
-const ICON = { match: '✨', claim: '🙋', message: '💬', item: '📦' };
+const ICON = {
+  match: <Sparkles size={20} strokeWidth={1.75} />,
+  claim: <User size={20} strokeWidth={1.75} />,
+  message: <MessageCircle size={20} strokeWidth={1.75} />,
+  item: <Package size={20} strokeWidth={1.75} />,
+};
 const linkFor = (n) => (n.type === 'match' && n.payload?.itemId ? `/items/${n.payload.itemId}` : n.type === 'message' ? '/messages' : n.payload?.itemId && n.type === 'item' ? `/items/${n.payload.itemId}` : '/claims');
 
 function Toggle({ label, checked, onChange }) {
@@ -36,9 +42,9 @@ export default function Notifications() {
       <Reveal><div className="row"><h1 style={{ margin: 0, fontSize: '2.2rem' }}>{t('notif.title')}</h1><span className="spacer" /><Button size="sm" onClick={markAll}>{t('notif.markAll')}</Button></div></Reveal>
       <div className="grid two" style={{ marginTop: 18, alignItems: 'start' }}>
         <div className="col">
-          {!items ? <Skeleton h={200} /> : !items.length ? <Empty icon="🔔" title={t('notif.quietTitle')}>{t('notif.quietText')}</Empty> : items.map((n) => (
+          {!items ? <Skeleton h={200} /> : !items.length ? <Empty icon={<BellOff size={40} strokeWidth={1.5} />} title={t('notif.quietTitle')}>{t('notif.quietText')}</Empty> : items.map((n) => (
             <Glass key={n.id} pad hover as={Link} to={linkFor(n)} onClick={() => markOne(n)} style={{ color: 'inherit', opacity: n.readAt ? 0.7 : 1, borderLeft: n.readAt ? undefined : '4px solid var(--teal)' }}>
-              <div className="row"><span style={{ fontSize: '1.5rem' }} aria-hidden>{ICON[n.type] ?? '🔔'}</span><div style={{ flex: 1 }}><strong>{n.title}</strong><div className="muted small">{n.body}</div></div><span className="faint small">{timeAgo(n.createdAt)}</span></div>
+              <div className="row"><span className="notif-ico" aria-hidden>{ICON[n.type] ?? <Bell size={20} strokeWidth={1.75} />}</span><div style={{ flex: 1 }}><strong>{n.title}</strong><div className="muted small">{n.body}</div></div><span className="faint small">{timeAgo(n.createdAt)}</span></div>
             </Glass>
           ))}
         </div>

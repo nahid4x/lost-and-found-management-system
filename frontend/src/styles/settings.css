@@ -42,3 +42,8 @@ html[data-motion="reduced"] *, html[data-motion="reduced"] *::before, html[data-
   #data-print .dp-kv th { width: 30%; background: #f4f4f4; }
   @page { margin: 16mm; }
 }
+.dev-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+  background: rgba(139, 109, 255, 0.15); color: #a995ff;
+}

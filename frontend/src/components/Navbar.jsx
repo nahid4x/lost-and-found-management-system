@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { MessageCircle, Bell, Menu } from 'lucide-react';
 import { useAuth } from '../context/Auth.jsx';
 import { useLive } from '../context/Live.jsx';
 import { initials } from '../lib/util.js';
@@ -44,8 +45,8 @@ export function Navbar() {
       {user ? (
         <>
           <Link to="/report/lost" className="btn primary sm">{t('nav.report')}</Link>
-          <Link to="/messages" className="icon-btn" aria-label={t('nav.messages', { count: live?.unreadMsgs || 0 })}>💬{!!live?.unreadMsgs && <span className="badge">{live.unreadMsgs > 99 ? '99+' : live.unreadMsgs}</span>}</Link>
-          <Link to="/notifications" className="icon-btn" aria-label={t('nav.notifications', { count: live?.unreadNotifs || 0 })}>🔔{!!live?.unreadNotifs && <span className="badge">{live.unreadNotifs > 99 ? '99+' : live.unreadNotifs}</span>}</Link>
+          <Link to="/messages" className="icon-btn" aria-label={t('nav.messages', { count: live?.unreadMsgs || 0 })}><MessageCircle size={20} strokeWidth={1.75} />{!!live?.unreadMsgs && <span className="badge">{live.unreadMsgs > 99 ? '99+' : live.unreadMsgs}</span>}</Link>
+          <Link to="/notifications" className="icon-btn" aria-label={t('nav.notifications', { count: live?.unreadNotifs || 0 })}><Bell size={20} strokeWidth={1.75} />{!!live?.unreadNotifs && <span className="badge">{live.unreadNotifs > 99 ? '99+' : live.unreadNotifs}</span>}</Link>
           <div className="avatar-wrap" ref={menuRef}>
             <button
               className="avatar"
@@ -85,7 +86,7 @@ export function Navbar() {
           <Link to="/register" className="btn primary sm">{t('nav.join')}</Link>
         </>
       )}
-      <button className="icon-btn menu-btn" aria-label={t('nav.menu')} aria-expanded={open} onClick={() => setOpen((o) => !o)}>☰</button>
+      <button className="icon-btn menu-btn" aria-label={t('nav.menu')} aria-expanded={open} onClick={() => setOpen((o) => !o)}><Menu size={20} strokeWidth={1.75} /></button>
     </header>
   );
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   Home, Search, Gift, MapPin, FileText, Handshake, MessageCircle, Settings,
-  User, LogOut,
+  User, LogOut, Heart,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/Auth.jsx";
@@ -131,7 +131,7 @@ export default function Layout({ children }) {
           ))}
         </nav>
 
-        <div className="fi-side-card">Together for<br />a safer community 🤍</div>
+        <div className="fi-side-card">Together for<br />a safer community <Heart size={14} fill="currentColor" style={{ display: 'inline', verticalAlign: '-2px' }} aria-hidden="true" /></div>
         <div className="fi-side-foot">
           <b>FindIt</b>
           Bringing people and belongings back together.

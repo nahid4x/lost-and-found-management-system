@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { Square, Navigation } from "lucide-react";
 
 const DHAKA = [90.4125, 23.8103]; // [lng, lat]
 const STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
@@ -141,8 +142,16 @@ export default function LocationPicker({ onChange }) {
     <div>
       <div ref={boxRef} style={{ height: 360, borderRadius: 16, overflow: "hidden" }} />
       <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "12px 0" }}>
-        <button type="button" onClick={tracking ? stopTracking : startLive}>
-          {tracking ? "⏹ Stop live location" : "📍 Use my live location"}
+        <button
+          type="button"
+          onClick={tracking ? stopTracking : startLive}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          {tracking ? (
+            <><Square size={14} strokeWidth={1.75} /> Stop live location</>
+          ) : (
+            <><Navigation size={14} strokeWidth={1.75} /> Use my live location</>
+          )}
         </button>
         <small>
           {coords

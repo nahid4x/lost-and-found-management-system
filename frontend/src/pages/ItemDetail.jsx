@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Ghost, Calendar, Unlock, Package, Phone, MessageCircle, ShieldCheck } from 'lucide-react';
 import { Glass, Button, Chip, Modal, Field, Skeleton, Empty, Reveal } from '../components/ui.jsx';
 import { Gallery } from '../components/Gallery.jsx';
 import { Dropzone } from '../components/Dropzone.jsx';
 import { Timeline } from '../components/ItemParts.jsx';
+import { CatIcon } from '../components/Icons';
 import { VerificationEditor } from '../components/VerificationEditor.jsx';
 import { validateEntries, toPayload, emptyEntry } from '../lib/verification.js';
 import { ApproxMap } from '../components/maps.jsx';
 import { useAuth } from '../context/Auth.jsx';
 import { useToast } from '../context/Toast.jsx';
 import { api } from '../lib/api.js';
-import { catLabel, catEmoji, fmtDate, timeAgo, errMsg } from '../lib/util.js';
+import { catLabel, fmtDate, timeAgo, errMsg } from '../lib/util.js';
 
 function ClaimModal({ item, open, onClose }) {
   const { t } = useTranslation();
@@ -124,7 +126,7 @@ export default function ItemDetail() {
   useEffect(() => { setItem(undefined); load(); }, [load, user?.id]);
 
   if (item === undefined) return <div className="container"><Skeleton h={420} /></div>;
-  if (item === null) return <div className="container"><Empty icon="🫥" title={t('detail.notFoundTitle')} action={<Link to="/" className="btn primary">{t('detail.backHome')}</Link>}>{t('detail.notFoundText')}</Empty></div>;
+  if (item === null) return <div className="container"><Empty icon={<Ghost size={40} strokeWidth={1.5} />} title={t('detail.notFoundTitle')} action={<Link to="/" className="btn primary">{t('detail.backHome')}</Link>}>{t('detail.notFoundText')}</Empty></div>;
 
   const canClaim = user && item.type === 'found' && !item.mine && ['open', 'matched', 'claimed'].includes(item.status);
   const close = async () => { try { await api.post(`/items/${item.id}/close`); toast.success(t('detail.reportClosed')); load(); } catch (e) { toast.error(errMsg(e)); } };
@@ -132,27 +134,27 @@ export default function ItemDetail() {
   return (
     <div className="container">
       <Reveal>
-        <div className="row" style={{ marginBottom: 12 }}><Chip kind={item.type} /><Chip kind={item.status} /><span className="muted">{catEmoji(item.category)} {catLabel(item.category)}</span><span className="faint">{t('detail.postedBy', { time: timeAgo(item.createdAt), name: item.ownerName })}</span></div>
+        <div className="row" style={{ marginBottom: 12 }}><Chip kind={item.type} /><Chip kind={item.status} /><span className="muted ico-row"><CatIcon category={item.category} size={14} /> {catLabel(item.category)}</span><span className="faint">{t('detail.postedBy', { time: timeAgo(item.createdAt), name: item.ownerName })}</span></div>
         <h1 style={{ fontSize: 'clamp(1.8rem,4vw,2.6rem)' }}>{item.title}</h1>
         <div className="grid two" style={{ alignItems: 'start' }}>
           <div className="col"><Gallery images={item.images} category={item.category} /></div>
           <div className="col">
             <Glass pad><h3>{t('detail.detailsTitle')}</h3><p style={{ whiteSpace: 'pre-wrap' }}>{item.description}</p>
-              <div className="muted small">{t(item.type === 'lost' ? 'detail.lostOn' : 'detail.foundOn', { date: fmtDate(item.date), place: item.area.label })}</div></Glass>
+              <div className="muted small ico-row"><Calendar size={14} /> {t(item.type === 'lost' ? 'detail.lostOn' : 'detail.foundOn', { date: fmtDate(item.date), place: item.area.label })}</div></Glass>
             <Glass pad><h3>{t('detail.statusTitle')}</h3><Timeline status={item.status} history={item.history} /></Glass>
             {item.location ? (
-              <Glass pad><h3>{t('detail.exactTitle')}</h3>
-                {item.heldAt && <p>{t('detail.heldAt')} <strong>{item.heldAt}</strong></p>}
-                {item.contactNote && <p>{t('detail.contact')} <strong>{item.contactNote}</strong></p>}
+              <Glass pad><h3 className="ico-row"><Unlock size={18} /> {t('detail.exactTitle')}</h3>
+                {item.heldAt && <p className="ico-row"><Package size={16} /> {t('detail.heldAt')} <strong>{item.heldAt}</strong></p>}
+                {item.contactNote && <p className="ico-row"><Phone size={16} /> {t('detail.contact')} <strong>{item.contactNote}</strong></p>}
                 <ApproxMap lat={item.location.lat} lng={item.location.lng} exact />
-                {!item.mine && <div className="row" style={{ marginTop: 12 }}><Link to="/messages" className="btn primary">{t('detail.openChat')}</Link><Link to="/claims" className="btn">{t('detail.markReturned')}</Link></div>}
+                {!item.mine && <div className="row" style={{ marginTop: 12 }}><Link to="/messages" className="btn primary"><MessageCircle size={16} /> {t('detail.openChat')}</Link><Link to="/claims" className="btn">{t('detail.markReturned')}</Link></div>}
               </Glass>
             ) : (
               <Glass pad><h3>{t('detail.approxTitle')}</h3><ApproxMap lat={item.area.lat} lng={item.area.lng} />
                 <p className="hint" style={{ marginTop: 8 }}>{item.type === 'found' ? t('detail.areaHintFound') : t('detail.areaHintLost')}</p></Glass>
             )}
             <div className="row">
-              {canClaim && <Button variant="primary" onClick={() => setClaiming(true)}>{t('detail.claimBtn')}</Button>}
+              {canClaim && <Button variant="primary" onClick={() => setClaiming(true)}><ShieldCheck size={16} /> {t('detail.claimBtn')}</Button>}
               {!user && item.type === 'found' && <Button variant="primary" onClick={() => nav(`/login?next=/items/${item.id}`)}>{t('detail.signInClaim')}</Button>}
               {item.mine && !['verified', 'returned', 'closed'].includes(item.status) && <Button onClick={close}>{t('detail.closeReport')}</Button>}
               {item.mine && item.type === 'found' && <Link to="/claims" className="btn">{t('detail.reviewClaims')}</Link>}

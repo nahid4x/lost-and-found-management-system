@@ -1,17 +1,19 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Glass, Chip } from './ui.jsx';
-import { catEmoji, catLabel, timeAgo, STATUS_FLOW } from '../lib/util.js';
+import { catLabel, timeAgo, STATUS_FLOW } from '../lib/util.js';
+import { MapPin, Clock } from 'lucide-react';
+import { CatIcon } from './Icons';
 
 export function ItemCard({ item }) {
   const { t } = useTranslation();
   return (
     <Glass as={Link} to={`/items/${item.id}`} hover className="card" aria-label={t('item.cardLabel', { type: t(`item.type_${item.type}`, { defaultValue: item.type }), title: item.title })}>
-      <div className="thumb">{item.images?.[0] ? <img src={item.images[0]} alt="" loading="lazy" decoding="async" /> : <span aria-hidden>{catEmoji(item.category)}</span>}</div>
+      <div className="thumb">{item.images?.[0] ? <img src={item.images[0]} alt="" loading="lazy" decoding="async" /> : <CatIcon category={item.category} size={40} strokeWidth={1.5} />}</div>
       <div className="body">
         <div className="row" style={{ gap: 6 }}><Chip kind={item.type} /><Chip kind={item.status} /></div>
         <h3>{item.title}</h3>
-        <div className="meta"><span>{catEmoji(item.category)} {catLabel(item.category)}</span><span>📍 {item.area?.label}</span><span>🕒 {timeAgo(item.createdAt)}</span></div>
+        <div className="meta"><span><CatIcon category={item.category} size={14} /> {catLabel(item.category)}</span><span><MapPin size={14} /> {item.area?.label}</span><span><Clock size={14} /> {timeAgo(item.createdAt)}</span></div>
       </div>
     </Glass>
   );

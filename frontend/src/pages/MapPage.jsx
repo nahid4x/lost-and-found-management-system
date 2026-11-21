@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { MapPin } from 'lucide-react';
 import { MapView } from '../components/maps.jsx';
 import { Glass, Button, Reveal } from '../components/ui.jsx';
 import { api, qs } from '../lib/api.js';
@@ -25,7 +26,7 @@ export default function MapPage() {
         <p className="muted small"><span className="chip lost">● {t('status.lost')}</span> <span className="chip found">● {t('status.found')}</span> {t('map.privacy')} {t('map.onMap', { n: items.length })}</p>
       </Reveal>
       <MapView tall items={items} onSelect={setSel} />
-      {sel && <Glass pad style={{ marginTop: 14 }} className="row"><span className={`chip ${sel.type}`}>{t(`status.${sel.type}`, { defaultValue: sel.type })}</span><strong>{sel.title}</strong><span className="muted">📍 {sel.area}</span><span className="spacer" /><Button variant="primary" size="sm" onClick={() => nav(`/items/${sel.id}`)}>{t('map.viewDetails')}</Button></Glass>}
+      {sel && <Glass pad style={{ marginTop: 14 }} className="row"><span className={`chip ${sel.type}`}>{t(`status.${sel.type}`, { defaultValue: sel.type })}</span><strong>{sel.title}</strong><span className="muted ico-row"><MapPin size={14} /> {sel.area}</span><span className="spacer" /><Button variant="primary" size="sm" onClick={() => nav(`/items/${sel.id}`)}>{t('map.viewDetails')}</Button></Glass>}
     </div>
   );
 }

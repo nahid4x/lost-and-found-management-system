@@ -1496,3 +1496,34 @@ html[data-theme="light"] .glass a { color: #2563eb; }
 @media (prefers-reduced-motion: reduce) {
   .fi-theme-icon { transition: none; }
 }
+/* ===== Lucide icons ===== */
+.ico { vertical-align: -0.2em; flex-shrink: 0; }
+.ico-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+span.ico-row { display: inline-flex; flex-wrap: nowrap; }
+.btn { display: inline-flex; align-items: center; gap: 6px; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; }
+
+/* item card (ItemParts.jsx) */
+.card .meta span { display: inline-flex; align-items: center; gap: 5px; }
+.card .thumb:not(:has(img)) { display: flex; align-items: center; justify-content: center; }
+
+/* notifications */
+.notif-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  background: rgba(139, 109, 255, 0.15); color: #a995ff;
+}
+
+/* devices (Settings.jsx) */
+.dev-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+  background: rgba(139, 109, 255, 0.15); color: #a995ff;
+}
+
+/* chat tick icons */
+.bubble small svg { vertical-align: -2px; }
+
+/* spinner icon (Messages, VoiceMessage) */
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

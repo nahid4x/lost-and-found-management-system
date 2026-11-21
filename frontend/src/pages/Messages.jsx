@@ -2,7 +2,7 @@ import '../styles/chat.css';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mic } from 'lucide-react';
+import { Mic, Camera, Clock, AlertTriangle, Check, CheckCheck, Ban, ArrowLeft, MessageCircle, MousePointerClick, Loader2 } from 'lucide-react';
 import { Glass, Button, Empty, Skeleton } from '../components/ui.jsx';
 import { useAuth } from '../context/Auth.jsx';
 import { useLive } from '../context/Live.jsx';
@@ -13,7 +13,6 @@ import { api, getToken, refresh } from '../lib/api.js';
 import { useAvatars } from '../lib/avatars.js';
 import { errMsg, fmtTime, initials, timeAgo } from '../lib/util.js';
 import { VoiceMessage, VoiceRecorder, canRecord } from '../components/VoiceMessage.jsx';
-
 /* ---------- icons (one consistent line style) ---------- */
 const Svg = ({ children }) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>;
 const PhoneIcon = () => <Svg><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" /></Svg>;
@@ -115,8 +114,8 @@ export default function Messages() {
   // System-made messages (calls, photos) are stored in English in the database; show them in the chosen language.
   const tr = (s) => ({ 'Voice call': t('chat.voiceCall'), 'Video call': t('chat.videoCall'), '📷 Photo': t('chat.photoMsg'), '🎤 Voice message': t('chat.voiceMsg') }[s] ?? s);
   // A voice message is stored as text with a microphone emoji; show a clean icon instead of the emoji.
-  const preview = (s) => (s === '🎤 Voice message' ? <span className="mic-prev"><Mic size={14} aria-hidden="true" />{t('chat.voiceMsg')}</span> : tr(s));
-  const tick = (m) => (m.pending ? '🕓' : m.failed ? '⚠️' : m.readAt ? <span className="tick read" title={t('chat.read')}>✓✓</span> : m.deliveredAt ? '✓✓' : '✓');
+  const preview = (s) => (s === '🎤 Voice message' ? <span className="mic-prev"><Mic size={14} aria-hidden="true" />{t('chat.voiceMsg')}</span> : s === '📷 Photo' ? <span className="mic-prev"><Camera size={14} aria-hidden="true" />{t('chat.photoMsg')}</span> : tr(s));
+  const tick = (m) => (m.pending ? <Clock size={12} aria-hidden="true" /> : m.failed ? <AlertTriangle size={12} aria-hidden="true" /> : m.readAt ? <span className="tick read" title={t('chat.read')}><CheckCheck size={14} aria-hidden="true" /></span> : m.deliveredAt ? <CheckCheck size={14} aria-hidden="true" /> : <Check size={14} aria-hidden="true" />);
 
   const loadConvs = useCallback(() => api.get('/realtime/conversations').then((d) => setConvs(d.conversations)).catch(() => setConvs([])), []);
   useEffect(() => { loadConvs(); }, [loadConvs]);
@@ -265,7 +264,7 @@ export default function Messages() {
   const canDelete = (m) => m.sender === user.id && !m.pending && !m.failed && !m.deleted && m.kind !== 'call';
 
   if (!convs) return <div className="container"><Skeleton h={420} /></div>;
-  if (!convs.length) return <div className="container"><Empty icon="💬" title={t('chat.noneTitle')}>{t('chat.noneText')}</Empty></div>;
+  if (!convs.length) return <div className="container"><Empty icon={<MessageCircle size={40} strokeWidth={1.5} />} title={t('chat.noneTitle')}>{t('chat.noneText')}</Empty></div>;
 
   const peerOnline = active ? online.has(active.other.id) : false;
   return (
@@ -292,10 +291,10 @@ export default function Messages() {
           })}
         </Glass>
         <Glass className="thread" style={{ position: 'relative' }}>
-          {!active ? <Empty icon="👈" title={t('chat.pickTitle')}>{t('chat.pickText')}</Empty> : (
+          {!active ? <Empty icon={<MousePointerClick size={40} strokeWidth={1.5} />} title={t('chat.pickTitle')}>{t('chat.pickText')}</Empty> : (
             <>
               <div className="thread-head">
-                <Button size="sm" className="back" onClick={() => nav('/messages')} aria-label={t('chat.back')} style={{ display: window.innerWidth > 780 ? 'none' : undefined }}>←</Button>
+                <Button size="sm" className="back" onClick={() => nav('/messages')} aria-label={t('chat.back')} style={{ display: window.innerWidth > 780 ? 'none' : undefined }}><ArrowLeft size={16} /></Button>
                 <Avatar name={active.other.name} online={peerOnline} src={pics[active.other.id]} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <strong>{active.other.name}</strong>
@@ -316,7 +315,7 @@ export default function Messages() {
                       className={`bubble ${m.sender === user.id ? 'me' : ''} ${m.pending ? 'pending' : ''} ${m.deleted ? 'deleted' : ''}`}
                       style={{ whiteSpace: 'pre-wrap' }}
                     >
-                      {m.deleted ? <em className="faint">🚫 {t('chat.deletedMsg')}</em> : m.kind === 'image' ? <ChatImage m={m} convId={activeId} /> : m.kind === 'voice' ? <VoiceMessage m={m} convId={activeId} /> : m.kind === 'call' ? tr(m.text) : m.text}
+                      {m.deleted ? <em className="faint"><Ban size={14} style={{ verticalAlign: '-2px' }} aria-hidden="true" /> {t('chat.deletedMsg')}</em> : m.kind === 'image' ? <ChatImage m={m} convId={activeId} /> : m.kind === 'voice' ? <VoiceMessage m={m} convId={activeId} /> : m.kind === 'call' ? tr(m.text) : m.text}
                       <small>{fmtTime(m.createdAt)} {m.sender === user.id && tick(m)} {m.failed && <button className="btn sm" onClick={() => send(null, m)}>{t('chat.retry')}</button>}{canDelete(m) && <button type="button" className="msg-x" onClick={() => deleteMsg(m)} aria-label={t('chat.deleteMsg')} title={t('chat.deleteMsg')}><TrashIcon /></button>}</small>
                     </div>
                   </Fragment>
@@ -328,7 +327,7 @@ export default function Messages() {
               </div>
               <form className="composer" onSubmit={send}>
                 <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { sendImage(e.target.files?.[0]); e.target.value = ''; }} />
-                <button type="button" className="chat-btn" disabled={uploading} onClick={() => fileRef.current?.click()} aria-label={t('chat.sendPhoto')} title={t('chat.sendPhoto')}>{uploading ? '…' : <ClipIcon />}</button>
+                <button type="button" className="chat-btn" disabled={uploading} onClick={() => fileRef.current?.click()} aria-label={t('chat.sendPhoto')} title={t('chat.sendPhoto')}>{uploading ? <Loader2 size={18} className="spin" /> : <ClipIcon />}</button>
                 <VoiceInput value={text} onChange={(v) => { setText(v); setTimeout(resize, 0); }} disabled={uploading} />
                 <label className="sr-only" htmlFor="msg">{t('chat.messageLabel')}</label>
                 <textarea id="msg" ref={input} className="input" rows={1} style={{ resize: 'none', maxHeight: 120 }} placeholder={t('chat.placeholder')} value={text} maxLength={2000} autoComplete="off" onChange={onType} onKeyDown={onKeyDown} />

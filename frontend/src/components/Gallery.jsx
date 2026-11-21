@@ -1,9 +1,17 @@
 import { useState } from 'react';
-import { catEmoji } from '../lib/util.js';
+import { CatIcon } from './Icons';
 
 export function Gallery({ images, category }) {
   const [i, setI] = useState(0);
-  if (!images?.length) return <div className="gallery"><div className="main" style={{ display: 'grid', placeItems: 'center', fontSize: '4rem' }} aria-hidden>{catEmoji(category)}</div></div>;
+  if (!images?.length) {
+    return (
+      <div className="gallery">
+        <div className="main" style={{ display: 'grid', placeItems: 'center', color: 'var(--muted, #8b93c9)' }} aria-hidden>
+          <CatIcon category={category} size={72} strokeWidth={1.25} />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="gallery">
       <div className="main"><img src={images[i]} alt={`Photo ${i + 1} of ${images.length}`} /></div>

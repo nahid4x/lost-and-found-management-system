@@ -4,7 +4,7 @@ import { useToast } from './Toast.jsx';
 import { api } from '../lib/api.js';
 import { initials } from '../lib/util.js';
 import { useAvatars } from '../lib/avatars.js';
-
+import { Volume2 } from 'lucide-react';
 const Ctx = createContext(null);
 export const useCall = () => useContext(Ctx);
 
@@ -182,7 +182,7 @@ function Stream({ stream, className, muted, kind = 'video' }) {
   return (
     <>
       <Tag ref={ref} className={className} autoPlay muted={muted} {...extra} />
-      {blocked && <button className="btn primary" style={{ position: 'absolute', top: 16, left: 16, zIndex: 5 }} onClick={() => ref.current?.play().then(() => setBlocked(false)).catch(() => {})}>🔊 Tap to hear</button>}
+      {blocked && <button className="btn primary" style={{ position: 'absolute', top: 16, left: 16, zIndex: 5 }} onClick={() => ref.current?.play().then(() => setBlocked(false)).catch(() => {})}><Volume2 size={16} /> Tap to hear</button>}
     </>
   );
 }
