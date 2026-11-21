@@ -38,10 +38,10 @@ const TEAM = [
   },
   {
     name: 'MD. Nabil Rahman',
-    role: 'Technical Manager',
+    role: 'Co-CEO & Technical Specialist',
     skills: 'Software Engineer · Project Reviewer · Technical Specialist',
     bio: 'The technical backbone of our development process. Oversees project reviews, evaluates software quality, and guides the team toward reliable solutions.',
-    photo: null,
+    photo: '/nabildev.jpg',
     links: [{ icon: GithubIcon, label: 'GitHub', href: 'https://github.com/nabil-rahman1339' }],
   },
 ];
