@@ -1,18 +1,32 @@
+import { Mail } from 'lucide-react';
 import { Glass, Reveal } from '../components/ui.jsx';
 import '../styles/about.css';
 
 const EMAIL = 'genesiscorporation2050@gmail.com';
 
-// Text-e email thakle seta clickable mailto link hoye jay
-function withEmailLink(text) {
-  if (!text.includes(EMAIL)) return text;
-  const [before, after] = text.split(EMAIL);
+// Circle mail button: hover/focus korle glow hoy, tooltip-e email dekhay, click korle mail khule
+function MailCard() {
+  const [name, domain] = EMAIL.split('@');
   return (
-    <>
-      {before}
-      <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
-      {after}
-    </>
+    <a className="mail-btn" href={`mailto:${EMAIL}`} aria-label={`Email us at ${EMAIL}`}>
+      <span className="mail-tip" aria-hidden="true">
+        <span>{name}</span>
+        <span>@{domain}</span>
+      </span>
+      <Mail size={18} aria-hidden="true" />
+    </a>
+  );
+}
+
+// Text-e email thakle: text ar mail button ek line-e
+function Para({ text }) {
+  if (!text.includes(EMAIL)) return <p className="muted">{text}</p>;
+  const before = text.split(EMAIL)[0].replace(/\s*at\s*$/, ':');
+  return (
+    <p className="muted mail-row">
+      <span>{before}</span>
+      <MailCard />
+    </p>
   );
 }
 
@@ -56,7 +70,7 @@ const PAGES = {
       ]],
       ['Security', 'Connections use HTTPS, passwords are hashed, access is role-based, and sensitive actions are rate limited. No system is 100% secure, so please use a strong, unique password and never share it.'],
       ['Children', 'FindIt is not intended for children under 13, and we do not knowingly collect their data.'],
-      ['Contact', `Questions about this policy? Email us at ${EMAIL}.`],
+      ['Contact', `Questions about this policy? Email us at ${EMAIL}`],
     ],
   },
   terms: {
@@ -87,7 +101,7 @@ const PAGES = {
       ['Suspension and termination', 'We may suspend or terminate accounts that violate these terms. You may delete your account at any time from Settings.'],
       ['Responsibility', 'FindIt helps people connect, but we are not responsible for the handover of items, for the condition or authenticity of items, or for disputes between users. The service is provided "as is", without any guarantee that an item will be found.'],
       ['Changes to these terms', 'We may update these terms from time to time. Continued use after a change means you accept the updated terms.'],
-      ['Contact', `Questions? Email us at ${EMAIL}.`],
+      ['Contact', `Questions? Email us at ${EMAIL}`],
     ],
   },
 };
@@ -104,7 +118,7 @@ export default function LegalPage({ kind }) {
         {p.sections.map(([h, text, items]) => (
           <section key={h}>
             <h3>{h}</h3>
-            {text && <p className="muted">{withEmailLink(text)}</p>}
+            {text && <Para text={text} />}
             {items && (
               <ul className="muted">
                 {items.map((li) => <li key={li}>{li}</li>)}
