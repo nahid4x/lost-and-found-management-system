@@ -13,6 +13,7 @@ const Home = lazy(() => import('./pages/Home.jsx'));
 const ItemsPage = lazy(() => import('./pages/ItemsPage.jsx'));
 const MapPage = lazy(() => import('./pages/MapPage.jsx'));
 const ItemDetail = lazy(() => import('./pages/ItemDetail.jsx'));
+const ItemComments = lazy(() => import('./pages/ItemComments.jsx'));
 const ReportPage = lazy(() => import('./pages/ReportPage.jsx'));
 const MyReports = lazy(() => import('./pages/MyReports.jsx'));
 const Claims = lazy(() => import('./pages/Claims.jsx'));
@@ -52,6 +53,7 @@ export default function App() {
                       <Route path="/found" element={<ItemsPage type="found" />} />
                       <Route path="/map" element={<MapPage />} />
                       <Route path="/items/:id" element={<ItemDetail />} />
+                      <Route path="/items/:id/comments" element={<ItemComments />} />
                       <Route path="/found/:id" element={<ItemDetail />} />
                       <Route path="/report/:type" element={<Protected><ReportPage /></Protected>} />
                       <Route path="/my-reports" element={<Protected><MyReports /></Protected>} />

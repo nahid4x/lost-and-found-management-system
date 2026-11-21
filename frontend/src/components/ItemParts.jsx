@@ -1,13 +1,19 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Glass, Chip } from './ui.jsx';
+<<<<<<< HEAD
 import { catLabel, timeAgo, STATUS_FLOW } from '../lib/util.js';
 import { MapPin, Clock } from 'lucide-react';
 import { CatIcon } from './Icons';
+=======
+import PostActions from './PostActions.jsx';
+import { catEmoji, catLabel, timeAgo, STATUS_FLOW } from '../lib/util.js';
+>>>>>>> origin/main
 
 export function ItemCard({ item }) {
   const { t } = useTranslation();
   return (
+<<<<<<< HEAD
     <Glass as={Link} to={`/items/${item.id}`} hover className="card" aria-label={t('item.cardLabel', { type: t(`item.type_${item.type}`, { defaultValue: item.type }), title: item.title })}>
       <div className="thumb">{item.images?.[0] ? <img src={item.images[0]} alt="" loading="lazy" decoding="async" /> : <CatIcon category={item.category} size={40} strokeWidth={1.5} />}</div>
       <div className="body">
@@ -15,6 +21,27 @@ export function ItemCard({ item }) {
         <h3>{item.title}</h3>
         <div className="meta"><span><CatIcon category={item.category} size={14} /> {catLabel(item.category)}</span><span><MapPin size={14} /> {item.area?.label}</span><span><Clock size={14} /> {timeAgo(item.createdAt)}</span></div>
       </div>
+=======
+    <Glass hover className={`card card-${item.type}`}>
+      <Link
+        to={`/items/${item.id}`}
+        className="card-link"
+        aria-label={t('item.cardLabel', { type: t(`item.type_${item.type}`, { defaultValue: item.type }), title: item.title })}
+      >
+        <div className="thumb">
+          {item.images?.[0] ? <img src={item.images[0]} alt="" loading="lazy" decoding="async" /> : <span aria-hidden>{catEmoji(item.category)}</span>}
+          <div className="thumb-shade" aria-hidden="true" />
+          <div className="thumb-badges"><Chip kind={item.type} /><Chip kind={item.status} /></div>
+          <span className="thumb-time">🕒 {timeAgo(item.createdAt)}</span>
+        </div>
+        <div className="body">
+          <h3>{item.title}</h3>
+          <span className="card-cat">{catEmoji(item.category)} {catLabel(item.category)}</span>
+          <div className="meta"><span>📍 {item.area?.label}</span></div>
+        </div>
+      </Link>
+      <PostActions item={item} />
+>>>>>>> origin/main
     </Glass>
   );
 }

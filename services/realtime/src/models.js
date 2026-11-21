@@ -21,6 +21,8 @@ const msgSchema = new Schema({
   call: { type: Schema.Types.Mixed },
   image: { type: Schema.Types.Mixed },
   voice: { type: Schema.Types.Mixed },
+  // A reply keeps a short copy of the message it answers (so the quote still shows after a reload); deleted:true when that message is deleted.
+  replyTo: { id: String, sender: String, kind: String, text: { type: String, maxlength: 140 }, deleted: Boolean },
   clientId: { type: String, required: true },
   deliveredAt: Date, readAt: Date, deletedAt: Date,
 }, { timestamps: true });
@@ -58,4 +60,4 @@ const callSchema = new Schema({
 export const Call = mongoose.models.Call || mongoose.model('Call', callSchema);
 
 export const pairKey = (a, b, itemId) => `${[a, b].sort().join(':')}:${itemId ?? ''}`;
-export const messageView = (m) => ({ id: String(m._id), conversation: m.conversation, sender: m.sender, text: m.text, clientId: m.clientId, deliveredAt: m.deliveredAt ?? null, readAt: m.readAt ?? null, createdAt: m.createdAt, kind: m.kind ?? 'text', call: m.call ?? null, image: m.image ?? null, voice: m.voice ?? null, deleted: Boolean(m.deletedAt) });
+export const messageView = (m) => ({ id: String(m._id), conversation: m.conversation, sender: m.sender, text: m.text, clientId: m.clientId, deliveredAt: m.deliveredAt ?? null, readAt: m.readAt ?? null, createdAt: m.createdAt, kind: m.kind ?? 'text', call: m.call ?? null, image: m.image ?? null, voice: m.voice ?? null, replyTo: m.replyTo?.id ? { id: m.replyTo.id, sender: m.replyTo.sender, kind: m.replyTo.kind ?? 'text', text: m.replyTo.deleted ? '' : (m.replyTo.text ?? ''), deleted: Boolean(m.replyTo.deleted) } : null, deleted: Boolean(m.deletedAt) });
