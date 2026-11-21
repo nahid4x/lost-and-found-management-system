@@ -9,6 +9,7 @@ import { errMsg, timeAgo } from '../lib/util.js';
 import { SIZES, loadA11y, saveA11y, osPrefersReducedMotion } from '../lib/a11y.js';
 import { collectMyData } from '../lib/exportData.js';
 import DataPrint from '../components/DataPrint.jsx';
+import { EmailSection, PasswordSection, DeleteSection } from '../components/AccountSections.jsx';
 
 function Language() {
   const { t, i18n } = useTranslation();
@@ -136,8 +137,11 @@ export default function Settings() {
       <div className="set-stack">
         <Language />
         <Accessibility />
+        <EmailSection />
+        <PasswordSection />
         <Devices />
         <MyData />
+        <DeleteSection />
       </div>
     </div>
   );

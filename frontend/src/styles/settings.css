@@ -2,9 +2,6 @@
 html[data-fs="sm"] { font-size: 90%; }
 html[data-fs="lg"] { font-size: 110%; }
 html[data-fs="xl"] { font-size: 120%; }
-/* bigger text must not break the top bar on a phone */
-.nav .btn { white-space: nowrap; }
-@media (max-width: 520px) { html[data-fs="lg"] .brand, html[data-fs="xl"] .brand { font-size: 1.05rem; } html[data-fs="lg"] .brand img, html[data-fs="xl"] .brand img { width: 28px; height: 28px; } }
 
 html[data-motion="reduced"] *, html[data-motion="reduced"] *::before, html[data-motion="reduced"] *::after {
   animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important;

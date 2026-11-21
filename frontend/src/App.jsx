@@ -5,7 +5,7 @@ import { ToastProvider } from './context/Toast.jsx';
 import { AuthProvider } from './context/Auth.jsx';
 import { LiveProvider } from './context/Live.jsx';
 import { CallProvider } from './context/Call.jsx';
-import { Navbar } from './components/Navbar.jsx';
+import Layout from './components/Layout.jsx';
 import { Protected } from './components/RouteGuards.jsx';
 import { Skeleton } from './components/ui.jsx';
 
@@ -34,34 +34,39 @@ export default function App() {
         <LiveProvider>
           <CallProvider>
             <a className="skip" href="#main">{t('app.skip')}</a>
-            <Navbar />
-            <main id="main">
-              <Suspense fallback={fallback}>
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/lost" element={<ItemsPage type="lost" />} />
-                  <Route path="/found" element={<ItemsPage type="found" />} />
-                  <Route path="/map" element={<MapPage />} />
-                  <Route path="/items/:id" element={<ItemDetail />} />
-                  <Route path="/report/:type" element={<Protected><ReportPage /></Protected>} />
-                  <Route path="/my-reports" element={<Protected><MyReports /></Protected>} />
-                  <Route path="/claims" element={<Protected><Claims /></Protected>} />
-                  <Route path="/messages" element={<Protected><Messages /></Protected>} />
-                  <Route path="/messages/:id" element={<Protected><Messages /></Protected>} />
-                  <Route path="/notifications" element={<Protected><Notifications /></Protected>} />
-                  <Route path="/profile" element={<Protected><Profile /></Protected>} />
-                  <Route path="/settings" element={<Protected><Settings /></Protected>} />
-                  <Route path="/admin" element={<Protected admin><Admin /></Protected>} />
-                  <Route path="/login" element={<AuthPages mode="login" />} />
-                  <Route path="/register" element={<AuthPages mode="register" />} />
-                  <Route path="/forgot-password" element={<AuthPages mode="forgot" />} />
-                  <Route path="/reset-password" element={<AuthPages mode="reset" />} />
-                  <Route path="/verify-email" element={<AuthPages mode="verify" />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </main>
-            <footer className="footer">{t('app.footer')} · © {new Date().getFullYear()} FindIt</footer>
+            <Suspense fallback={fallback}>
+              <Routes>
+                {/* Auth pages: sidebar chhara */}
+                <Route path="/login" element={<AuthPages mode="login" />} />
+                <Route path="/register" element={<AuthPages mode="register" />} />
+                <Route path="/forgot-password" element={<AuthPages mode="forgot" />} />
+                <Route path="/reset-password" element={<AuthPages mode="reset" />} />
+                <Route path="/verify-email" element={<AuthPages mode="verify" />} />
+
+                {/* Baki shob page: sidebar shoho */}
+                <Route path="/*" element={
+                  <Layout>
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/lost" element={<ItemsPage type="lost" />} />
+                      <Route path="/found" element={<ItemsPage type="found" />} />
+                      <Route path="/map" element={<MapPage />} />
+                      <Route path="/items/:id" element={<ItemDetail />} />
+                      <Route path="/report/:type" element={<Protected><ReportPage /></Protected>} />
+                      <Route path="/my-reports" element={<Protected><MyReports /></Protected>} />
+                      <Route path="/claims" element={<Protected><Claims /></Protected>} />
+                      <Route path="/messages" element={<Protected><Messages /></Protected>} />
+                      <Route path="/messages/:id" element={<Protected><Messages /></Protected>} />
+                      <Route path="/notifications" element={<Protected><Notifications /></Protected>} />
+                      <Route path="/profile" element={<Protected><Profile /></Protected>} />
+                      <Route path="/settings" element={<Protected><Settings /></Protected>} />
+                      <Route path="/admin" element={<Protected admin><Admin /></Protected>} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Layout>
+                } />
+              </Routes>
+            </Suspense>
           </CallProvider>
         </LiveProvider>
       </AuthProvider>

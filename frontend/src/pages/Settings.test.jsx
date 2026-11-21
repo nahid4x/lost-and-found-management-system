@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({ api: { get: vi.fn(), del: vi.fn(), post: vi.fn() }
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k) => k, i18n: { resolvedLanguage: 'en', changeLanguage: vi.fn() } }) }));
 vi.mock('../lib/api.js', () => ({ api: h.api }));
 vi.mock('../lib/util.js', () => ({ errMsg: (e) => e.message, timeAgo: () => 'a while ago', fmtDate: () => 'some day' }));
-vi.mock('../context/Auth.jsx', () => ({ useAuth: () => ({ logout: h.logout }) }));
+vi.mock('../context/Auth.jsx', () => ({ useAuth: () => ({ logout: h.logout, user: { name: 'Nabil', email: 'nabil@example.com' }, refresh: vi.fn(), setUser: vi.fn() }) }));
 vi.mock('../context/Toast.jsx', () => ({ useToast: () => h.toast }));
 
 const sessions = [
