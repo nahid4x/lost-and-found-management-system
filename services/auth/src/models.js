@@ -27,6 +27,10 @@ const refreshSchema = new Schema({
   expiresAt: { type: Date, required: true, index: { expires: 0 } },
   revokedAt: Date,
   replacedBy: String,
+  // Which device this login is: shown in Settings -> Devices. Copied along when the token rotates.
+  ua: { type: String, maxlength: 200 },
+  ip: { type: String, maxlength: 64 },
+  loginAt: Date,
 }, { timestamps: true });
 export const RefreshToken = mongoose.models.RefreshToken || mongoose.model('RefreshToken', refreshSchema);
 
