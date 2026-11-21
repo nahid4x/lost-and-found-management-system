@@ -102,3 +102,6 @@
 .voice-time { font-variant-numeric: tabular-nums; font-size: 0.78rem; opacity: 0.85; }
 @media (prefers-reduced-motion: reduce) { .rec-dot { animation: none; } }
 @keyframes recPulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); } 100% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } }
+
+/* "Voice message" preview in the chat list: a microphone icon instead of an emoji (stays inline so the long line still ends in "…") */
+.mic-prev svg { display: inline-block; vertical-align: -2px; margin-inline-end: 4px; }
