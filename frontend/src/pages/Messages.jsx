@@ -331,7 +331,7 @@ export default function Messages() {
                       style={{ whiteSpace: 'pre-wrap' }}
                     >
                       {m.replyTo && !m.deleted && <Quote name={whoName(m.replyTo.sender)} deleted={m.replyTo.deleted} deletedLabel={t('chat.deletedMsg')} onJump={() => jumpTo(m.replyTo.id)}>{preview(m.replyTo.text)}</Quote>}
-                      {m.deleted ? <em className="faint"><Ban size={14} style={{ verticalAlign: '-2px' }} aria-hidden="true" /> {t('chat.deletedMsg')}</em> : m.kind === 'image' ?<ChatImage m={m} convId={activeId} /> : m.kind === 'voice' ? <VoiceMessage m={m} convId={activeId} /> : m.kind === 'call' ? tr(m.text) : m.text}
+                      {m.deleted ? <em className="faint"><Ban size={14} style={{ verticalAlign: '-2px' }} aria-hidden="true" /> {t('chat.deletedMsg')}</em> :m.kind === 'image' ? <ChatImage m={m} convId={activeId} /> : m.kind === 'voice' ? <VoiceMessage m={m} convId={activeId} /> : m.kind === 'call' ? tr(m.text) : m.text}
                       <small>{fmtTime(m.createdAt)} {m.sender === user.id && tick(m)} {m.failed && <button className="btn sm" onClick={() => send(null, m)}>{t('chat.retry')}</button>}{canReply(m) && <button type="button" className="msg-x" onClick={() => startReply(m)} aria-label={t('chat.reply')} title={t('chat.reply')}><Reply aria-hidden="true" /></button>}{canDelete(m) && <button type="button" className="msg-x" onClick={() => deleteMsg(m)} aria-label={t('chat.deleteMsg')} title={t('chat.deleteMsg')}><TrashIcon /></button>}</small>
                     </div>
                   </Fragment>
