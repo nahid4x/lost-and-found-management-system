@@ -1,11 +1,26 @@
 import { Glass, Reveal } from '../components/ui.jsx';
 import '../styles/about.css';
 
+const EMAIL = 'genesiscorporation2050@gmail.com';
+
+// Text-e email thakle seta clickable mailto link hoye jay
+function withEmailLink(text) {
+  if (!text.includes(EMAIL)) return text;
+  const [before, after] = text.split(EMAIL);
+  return (
+    <>
+      {before}
+      <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+      {after}
+    </>
+  );
+}
+
 // Section format: [heading, paragraph, optional bullet items[]]
 const PAGES = {
   privacy: {
     title: 'Privacy Policy',
-    updated: 'November 21, 2026',
+    updated: 'November 22, 2026',
     sections: [
       ['Information we collect', 'When you use FindIt we collect:', [
         'Account data: your name, email address and a securely hashed password. Passwords are never stored in plain text.',
@@ -32,7 +47,7 @@ const PAGES = {
       ]],
       ['Sessions and cookies', 'We use secure session tokens to keep you signed in and to protect your account. We also store your theme (light/dark) preference in your browser. We do not use advertising or tracking cookies.'],
       ['Audit log', 'Important actions, such as claim decisions and status changes, are recorded with who did them and when. This helps resolve disputes and detect misuse. Audit entries do not contain message bodies or passwords.'],
-      ['Data retention', 'We keep your data while your account is active. Closed reports and related claims are kept for [__ days/months] for dispute resolution, then deleted or anonymised. When you delete your account, your profile is removed within [__ days], except records we must keep for security or legal reasons.'],
+      ['Data retention', 'We keep your data while your account is active. Closed reports and related claims are kept for 90 days for dispute resolution, then deleted or anonymised. When you delete your account, your profile is removed within 30 days, except records we must keep for security or legal reasons.'],
       ['Your control', null, [
         'Edit your profile and change your password at any time.',
         'Choose which notifications you receive from Settings.',
@@ -41,12 +56,12 @@ const PAGES = {
       ]],
       ['Security', 'Connections use HTTPS, passwords are hashed, access is role-based, and sensitive actions are rate limited. No system is 100% secure, so please use a strong, unique password and never share it.'],
       ['Children', 'FindIt is not intended for children under 13, and we do not knowingly collect their data.'],
-      ['Contact', 'Questions about this policy? Email us at [your-email@example.com].'],
+      ['Contact', `Questions about this policy? Email us at ${EMAIL}.`],
     ],
   },
   terms: {
     title: 'Terms & Conditions',
-    updated: 'November 21, 2026',
+    updated: 'November 22, 2026',
     sections: [
       ['Acceptance', 'By creating an account or using FindIt you agree to these terms and to our Privacy Policy. If you do not agree, please do not use the service.'],
       ['Your account', null, [
@@ -72,7 +87,7 @@ const PAGES = {
       ['Suspension and termination', 'We may suspend or terminate accounts that violate these terms. You may delete your account at any time from Settings.'],
       ['Responsibility', 'FindIt helps people connect, but we are not responsible for the handover of items, for the condition or authenticity of items, or for disputes between users. The service is provided "as is", without any guarantee that an item will be found.'],
       ['Changes to these terms', 'We may update these terms from time to time. Continued use after a change means you accept the updated terms.'],
-      ['Contact', 'Questions? Email us at [your-email@example.com].'],
+      ['Contact', `Questions? Email us at ${EMAIL}.`],
     ],
   },
 };
@@ -89,7 +104,7 @@ export default function LegalPage({ kind }) {
         {p.sections.map(([h, text, items]) => (
           <section key={h}>
             <h3>{h}</h3>
-            {text && <p className="muted">{text}</p>}
+            {text && <p className="muted">{withEmailLink(text)}</p>}
             {items && (
               <ul className="muted">
                 {items.map((li) => <li key={li}>{li}</li>)}
