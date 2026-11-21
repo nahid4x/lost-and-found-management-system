@@ -7,6 +7,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/Auth.jsx";
 import "./layout.css";
+import Footer from "./Footer.jsx";
 
 const links = [
   { to: "/", label: "home", icon: Home, end: true },
@@ -136,6 +137,7 @@ export default function Layout({ children }) {
           <b>FindIt</b>
           Bringing people and belongings back together.
         </div>
+        <Footer />
       </aside>
 
       <div className="fi-main">
