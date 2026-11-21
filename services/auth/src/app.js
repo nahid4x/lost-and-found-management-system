@@ -13,7 +13,7 @@ import { trusted } from '@findit/shared/db';
 import { makeAvatar } from '@findit/shared/cloud';
 import { User, OneTimeToken, EmailOtp, EmailChange, Avatar, userView } from './models.js';
 import { passwordSchema, hashPassword, verifyPassword } from './passwords.js';
-import { issueSession, rotate, revokeFamilyFromToken, revokeAllForUser, cookieOpts, COOKIE } from './sessions.js';
+import { issueSession, rotate, revokeFamilyFromToken, revokeAllForUser, cookieOpts, COOKIE, familyFromToken, listSessions, revokeFamily } from './sessions.js';
 
 const email = z.string().trim().toLowerCase().email().max(254);
 const registerSchema = z.object({ name: z.string().trim().min(2).max(60), email, password: passwordSchema(10) }).strict();
@@ -47,6 +47,7 @@ export function createAuthApp({ env, logger, bus, redis = null }) {
   const adminOnly = requireAdmin(async (id) => User.findById(id).select('role isActive').lean());
   const csrf = (req, _res, next) => (req.headers['x-requested-with'] === 'findit' ? next() : next(forbidden('Missing CSRF header')));
   const ip = (req) => req.ip;
+  const device = (req) => ({ ua: req.get('user-agent'), ip: req.ip }); // label for Settings -> Devices
 
   const limit = (windowMin, max, prefix, keyGenerator, skipSuccessfulRequests) =>
     makeLimiter({ redis, windowMs: windowMin * 60_000, limit: max, prefix: `auth:${prefix}`, keyGenerator, skipSuccessfulRequests });
@@ -154,7 +155,7 @@ export function createAuthApp({ env, logger, bus, redis = null }) {
       await audit(bus, 'auth', { action: 'user.register', actor: user._id, targetType: 'user', targetId: user._id, ip: ip(req) });
       const full = await User.findById(user._id).select('+tokenVersion');
       res.status(201);
-      sendSession(res, await issueSession(env, full), user);
+      sendSession(res, await issueSession(env, full, undefined, device(req)), user);
     } catch (e) { next(e); }
   });
 
@@ -174,7 +175,7 @@ export function createAuthApp({ env, logger, bus, redis = null }) {
       }
       if (user.failedLogins) await User.updateOne({ _id: user._id }, { failedLogins: 0, $unset: { lockUntil: 1 } });
       await audit(bus, 'auth', { action: 'user.login', actor: user._id, targetType: 'user', targetId: user._id, ip: ip(req) });
-      sendSession(res, await issueSession(env, user), user);
+      sendSession(res, await issueSession(env, user, undefined, device(req)), user);
     } catch (e) { next(e); }
   });
 
@@ -182,7 +183,7 @@ export function createAuthApp({ env, logger, bus, redis = null }) {
     try {
       const raw = req.cookies?.[COOKIE];
       if (!raw) throw unauthorized();
-      const s = await rotate(env, raw);
+      const s = await rotate(env, raw, req.ip);
       sendSession(res, s, s.user);
     } catch (e) {
       if (e.status === 401) res.clearCookie(COOKIE, { ...cookieOpts(env), maxAge: undefined });
@@ -194,6 +195,21 @@ export function createAuthApp({ env, logger, bus, redis = null }) {
     try {
       if (req.cookies?.[COOKIE]) await revokeFamilyFromToken(env, req.cookies[COOKIE]);
       res.clearCookie(COOKIE, { ...cookieOpts(env), maxAge: undefined });
+      res.status(204).end();
+    } catch (e) { next(e); }
+  });
+
+  // Devices that are signed in right now (one per login). The current one is marked from the refresh cookie.
+  app.get('/sessions', auth, async (req, res, next) => {
+    try { res.json({ sessions: await listSessions(req.user.id, familyFromToken(env, req.cookies?.[COOKIE])) }); } catch (e) { next(e); }
+  });
+
+  // Sign one device out. It can no longer refresh; its current access token still works for up to 15 minutes.
+  app.delete('/sessions/:id', auth, csrf, validate(z.object({ id: z.string().uuid() }), 'params'), async (req, res, next) => {
+    try {
+      if (!(await revokeFamily(req.user.id, req.params.id))) throw notFound('Device not found');
+      if (familyFromToken(env, req.cookies?.[COOKIE]) === req.params.id) res.clearCookie(COOKIE, { ...cookieOpts(env), maxAge: undefined });
+      await audit(bus, 'auth', { action: 'user.session_revoke', actor: req.user.id, targetType: 'user', targetId: req.user.id, ip: ip(req) });
       res.status(204).end();
     } catch (e) { next(e); }
   });

@@ -227,3 +227,65 @@ describe('account lifecycle', () => {
     expect((await request(app).patch(`/admin/users/${al.body.user.id}`).set(a).send({})).status).toBe(400);
   });
 });
+
+describe('signed-in devices', () => {
+  const WIN = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
+  const cookieOf = (r) => r.headers['set-cookie'][0].split(';')[0];
+  const bearer = (r) => ({ Authorization: `Bearer ${r.body.accessToken}` });
+  const twoDevices = async () => {
+    const a = await request(app).post('/register').set('User-Agent', WIN).send(good);
+    const b = await request(app).post('/login').set('User-Agent', IPHONE).send({ email: good.email, password: good.password });
+    return { a, b };
+  };
+
+  it('lists every login with a readable label, hides the full address and marks this device', async () => {
+    const { b } = await twoDevices();
+    const r = await request(app).get('/sessions').set(bearer(b)).set('Cookie', cookieOf(b));
+    expect(r.status).toBe(200);
+    expect(r.body.sessions).toHaveLength(2);
+    const me = r.body.sessions.find((s) => s.current);
+    const other = r.body.sessions.find((s) => !s.current);
+    expect(me.device).toBe('Safari on iOS');
+    expect(other.device).toBe('Chrome on Windows');
+    for (const s of r.body.sessions) expect(s.ip).toMatch(/\.x$|^$/);
+    expect(JSON.stringify(r.body)).not.toMatch(/jti|refresh|Mozilla/);
+    expect((await request(app).get('/sessions')).status).toBe(401);
+  });
+
+  it('keeps the same device (id, label) after the refresh token rotates', async () => {
+    const { a } = await twoDevices();
+    const before = (await request(app).get('/sessions').set(bearer(a)).set('Cookie', cookieOf(a))).body.sessions.find((s) => s.current);
+    const rot = await request(app).post('/refresh').set(H).set('Cookie', cookieOf(a));
+    expect(rot.status).toBe(200);
+    const list = (await request(app).get('/sessions').set(bearer(rot)).set('Cookie', cookieOf(rot))).body.sessions;
+    expect(list).toHaveLength(2);
+    const after = list.find((s) => s.current);
+    expect(after.id).toBe(before.id);
+    expect(after.device).toBe('Chrome on Windows');
+  });
+
+  it('signs one device out: it can no longer refresh, the other keeps working; CSRF header required', async () => {
+    const { a, b } = await twoDevices();
+    const list = (await request(app).get('/sessions').set(bearer(b)).set('Cookie', cookieOf(b))).body.sessions;
+    const win = list.find((s) => !s.current);
+    expect((await request(app).delete(`/sessions/${win.id}`).set(bearer(b))).status).toBe(403);
+    expect((await request(app).delete(`/sessions/${win.id}`).set(bearer(b)).set(H).set('Cookie', cookieOf(b))).status).toBe(204);
+    expect((await request(app).post('/refresh').set(H).set('Cookie', cookieOf(a))).status).toBe(401);
+    expect((await request(app).post('/refresh').set(H).set('Cookie', cookieOf(b))).status).toBe(200);
+    expect((await request(app).get('/sessions').set(bearer(b)).set('Cookie', cookieOf(b))).body.sessions).toHaveLength(1);
+    expect(bus.published.some((e) => e.type === 'audit.record' && e.payload.action === 'user.session_revoke')).toBe(true);
+  });
+
+  it('signing out the current device clears its cookie; unknown ids 404; nobody can end another user\'s device', async () => {
+    const { a } = await twoDevices();
+    const mine = (await request(app).get('/sessions').set(bearer(a)).set('Cookie', cookieOf(a))).body.sessions.find((s) => s.current);
+    const other = await request(app).post('/register').send({ name: 'Tester Two', email: 'two@example.com', password: good.password });
+    expect((await request(app).delete(`/sessions/${mine.id}`).set(bearer(other)).set(H)).status).toBe(404);
+    expect((await request(app).delete('/sessions/not-an-id').set(bearer(a)).set(H)).status).toBe(400);
+    expect((await request(app).delete('/sessions/6f1c2c1e-0000-4000-8000-000000000000').set(bearer(a)).set(H)).status).toBe(404);
+    const gone = await request(app).delete(`/sessions/${mine.id}`).set(bearer(a)).set(H).set('Cookie', cookieOf(a));
+    expect(gone.status).toBe(204);
+    expect(gone.headers['set-cookie'].join(';')).toMatch(/fi_rt=;/);
+  });
+});

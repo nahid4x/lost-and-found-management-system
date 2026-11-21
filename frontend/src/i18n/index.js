@@ -8,6 +8,8 @@ import enReport from './en.report.json';
 import bnReport from './bn.report.json';
 import enAdmin from './en.admin.json';
 import bnAdmin from './bn.admin.json';
+import enSettings from './en.settings.json';
+import bnSettings from './bn.settings.json';
 
 // Nested object merge: pore ashar file-er key age-er key-ke override kore, kintu baki key gulo thake.
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
@@ -21,8 +23,8 @@ const merge = (...parts) => parts.reduce(deepMerge, {});
 
 i18n.use(initReactI18next).init({
   resources: {
-    en: { translation: merge(en, enMore, enReport, enAdmin) },
-    bn: { translation: merge(bn, bnMore, bnReport, bnAdmin) },
+    en: { translation: merge(en, enMore, enReport, enAdmin, enSettings) },
+    bn: { translation: merge(bn, bnMore, bnReport, bnAdmin, bnSettings) },
   },
   lng: localStorage.getItem('lang') || 'en',
   fallbackLng: 'en',

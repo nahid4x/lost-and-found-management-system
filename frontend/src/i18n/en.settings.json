@@ -1,0 +1,68 @@
+{
+  "settings": {
+    "a11y": {
+      "title": "Accessibility",
+      "hint": "Make FindIt easier to read and calmer to use. Saved on this device only.",
+      "textSize": "Text size",
+      "size_sm": "Small",
+      "size_md": "Normal",
+      "size_lg": "Large",
+      "size_xl": "Extra large",
+      "preview": "Sample text: lost your wallet? We will help you find it.",
+      "motion": "Reduce animations",
+      "motionHint": "Turns off sliding, fading and pulsing effects.",
+      "reset": "Reset to default"
+    },
+    "devices": {
+      "title": "Signed-in devices",
+      "hint": "These are the devices where your account is signed in. Sign out of any you do not recognise.",
+      "thisDevice": "This device",
+      "signedIn": "Signed in {{when}}",
+      "lastActive": "Active {{when}}",
+      "signOut": "Sign out",
+      "signedOutToast": "That device was signed out.",
+      "none": "No signed-in devices found.",
+      "loadFailed": "Could not load your devices. Try again later.",
+      "note": "A device you sign out can keep working for up to 15 minutes, then it has to log in again.",
+      "signOutAll": "Sign out of all devices",
+      "allTitle": "Sign out of all devices?",
+      "allText": "Every device, including this one, will be signed out. You will need to log in again.",
+      "allConfirm": "Sign out everywhere",
+      "cancel": "Cancel"
+    },
+    "data": {
+      "title": "Download my data",
+      "hint": "Get a copy of your information as a file you can keep.",
+      "includes": "Included: your profile, your reports, your claims, a short summary of claims on your found items, and your latest notifications.",
+      "excludes": "Not included: your password, chat messages, other people's private details and your private verification answers.",
+      "preparing": "Preparing…",
+      "partial": "Saved, but some parts could not be loaded: {{parts}}.",
+      "failed": "Could not prepare your data. Try again.",
+      "pdf": "Save as PDF",
+      "pdfHint": "A print window opens. Choose “Save as PDF” as the printer, then press Save.",
+      "print": {
+        "title": "My data",
+        "exportedOn": "Exported on {{date}}",
+        "profile": "Profile",
+        "name": "Name",
+        "email": "Email",
+        "role": "Role",
+        "verified": "Email verified",
+        "yes": "Yes",
+        "no": "No",
+        "reports": "My reports",
+        "claimsMade": "Claims I made",
+        "claimsOnMine": "Claims on my found items (summary)",
+        "notifications": "Latest notifications",
+        "item": "Item",
+        "type": "Type",
+        "category": "Category",
+        "status": "Status",
+        "date": "Date",
+        "area": "Area",
+        "what": "Notification",
+        "none": "Nothing here."
+      }
+    }
+  }
+}
