@@ -52,6 +52,7 @@ export default function App() {
                       <Route path="/found" element={<ItemsPage type="found" />} />
                       <Route path="/map" element={<MapPage />} />
                       <Route path="/items/:id" element={<ItemDetail />} />
+                      <Route path="/found/:id" element={<ItemDetail />} />
                       <Route path="/report/:type" element={<Protected><ReportPage /></Protected>} />
                       <Route path="/my-reports" element={<Protected><MyReports /></Protected>} />
                       <Route path="/claims" element={<Protected><Claims /></Protected>} />

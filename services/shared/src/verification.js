@@ -6,7 +6,8 @@ const AR = '٠١٢٣٤٥٦٧٨٩';
 const STOP = new Set(['a', 'an', 'the', 'of', 'and', 'with', 'in', 'on', 'is', 'was', 'it', 'its', 'to', 'for', 'at']);
 const CURRENCY = /(৳|\$|€|£|₹|\b(?:tk|taka|bdt|usd|rs|inr)\b\.?)/giu;
 
-export const DEFAULTS = Object.freeze({ high: 80, medium: 50, descriptiveMinSimilarity: 0.6, approxCredit: 0.5 });
+// minQuestions: with fewer scored questions than this, a claim can never reach the "high" level.
+export const DEFAULTS = Object.freeze({ high: 80, medium: 50, descriptiveMinSimilarity: 0.6, approxCredit: 0.5, minQuestions: 3 });
 
 /** Bangla/Arabic-Indic digits -> ASCII, so "৫০০" equals "500". */
 export const asciiDigits = (s) => String(s ?? '').replace(/[০-৯]/g, (d) => BN.indexOf(d)).replace(/[٠-٩]/g, (d) => AR.indexOf(d));
@@ -60,10 +61,11 @@ export const levelFor = (score, cfg = DEFAULTS) => (score == null ? 'unscored' :
 /**
  * entries: [{ id, question, type, weight, answer, tolerance }]  (the finder's private answers; never stored here)
  * given:   claimant answers aligned by index. Unanswered questions stay in the denominator, so skipping can never raise the score.
+ * lowConfidence: fewer than cfg.minQuestions scored questions. The score is still shown, but the level is capped at "medium".
  */
 export function scoreVerification(entries, given, cfg = DEFAULTS) {
   const eligible = entries.filter((e) => String(e.answer ?? '').trim());
-  if (!eligible.length) return { scored: false, score: null, level: 'unscored', matched: 0, approximate: 0, total: 0, answered: 0, perQuestion: [] };
+  if (!eligible.length) return { scored: false, score: null, level: 'unscored', lowConfidence: false, matched: 0, approximate: 0, total: 0, answered: 0, perQuestion: [] };
   let weightSum = 0; let gained = 0; let matched = 0; let approximate = 0; let answered = 0;
   const perQuestion = entries.map((e, i) => {
     const claimed = String(given?.[i] ?? '').trim();
@@ -77,5 +79,8 @@ export function scoreVerification(entries, given, cfg = DEFAULTS) {
     return { id: e.id, question: e.question, claimed, result: c.result, weight: w };
   });
   const score = Math.round((gained / weightSum) * 100);
-  return { scored: true, score, level: levelFor(score, cfg), matched, approximate, total: eligible.length, answered, perQuestion };
+  const lowConfidence = eligible.length < (cfg.minQuestions ?? DEFAULTS.minQuestions);
+  let level = levelFor(score, cfg);
+  if (lowConfidence && level === 'high') level = 'medium'; // 1-2 answers are never enough for "High Match"
+  return { scored: true, score, level, lowConfidence, matched, approximate, total: eligible.length, answered, perQuestion };
 }

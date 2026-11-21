@@ -147,6 +147,7 @@
     "matched": "{{matched}} of {{total}} answers matched",
     "approx": " · {{n}} approximate",
     "blankN": " · {{n}} left blank",
+    "fewQuestions": "Only {{n}} question(s) were asked, so even a 100% score is weak evidence. Ask for more proof before approving.",
     "tableAria": "Answer comparison",
     "colQ": "Question",
     "colA": "Claimant’s answer",
