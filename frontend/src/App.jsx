@@ -8,6 +8,8 @@ import { CallProvider } from './context/Call.jsx';
 import Layout from './components/Layout.jsx';
 import { Protected } from './components/RouteGuards.jsx';
 import { Skeleton } from './components/ui.jsx';
+import AboutUs from './pages/AboutUs.jsx';
+import LegalPage from './pages/LegalPage.jsx';
 
 const Home = lazy(() => import('./pages/Home.jsx'));
 const ItemsPage = lazy(() => import('./pages/ItemsPage.jsx'));
@@ -65,6 +67,9 @@ export default function App() {
                       <Route path="/settings" element={<Protected><Settings /></Protected>} />
                       <Route path="/admin" element={<Protected admin><Admin /></Protected>} />
                       <Route path="*" element={<NotFound />} />
+                      <Route path="/about" element={<AboutUs />} />
+                      <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+                      <Route path="/terms" element={<LegalPage kind="terms" />} />
                     </Routes>
                   </Layout>
                 } />
