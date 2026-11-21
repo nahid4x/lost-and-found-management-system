@@ -1496,7 +1496,6 @@ html[data-theme="light"] .glass a { color: #2563eb; }
 @media (prefers-reduced-motion: reduce) {
   .fi-theme-icon { transition: none; }
 }
-<<<<<<< HEAD
 /* ===== Lucide icons ===== */
 .ico { vertical-align: -0.2em; flex-shrink: 0; }
 .ico-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -1528,7 +1527,6 @@ span.ico-row { display: inline-flex; flex-wrap: nowrap; }
 /* spinner icon (Messages, VoiceMessage) */
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-=======
 .post-actions { border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent); margin-top: 12px; padding: 10px 14px 12px; }
 .post-actions .pa-bar { display: flex; align-items: center; gap: 8px; }
 
@@ -1698,4 +1696,3 @@ span.ico-row { display: inline-flex; flex-wrap: nowrap; }
   padding: 4px 10px; border-radius: 999px; font-size: 12px; white-space: nowrap;
   background: #1b2250; border: 1px solid rgba(255, 255, 255, .18);
 }
->>>>>>> origin/main
