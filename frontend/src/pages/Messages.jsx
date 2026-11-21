@@ -2,6 +2,7 @@ import '../styles/chat.css';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Mic } from 'lucide-react';
 import { Glass, Button, Empty, Skeleton } from '../components/ui.jsx';
 import { useAuth } from '../context/Auth.jsx';
 import { useLive } from '../context/Live.jsx';
@@ -9,6 +10,7 @@ import { useCall } from '../context/Call.jsx';
 import { useToast } from '../context/Toast.jsx';
 import VoiceInput from '../components/VoiceInput.jsx';
 import { api, getToken, refresh } from '../lib/api.js';
+import { useAvatars } from '../lib/avatars.js';
 import { errMsg, fmtTime, initials, timeAgo } from '../lib/util.js';
 import { VoiceMessage, VoiceRecorder, canRecord } from '../components/VoiceMessage.jsx';
 
@@ -20,11 +22,13 @@ const ClipIcon = () => <Svg><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49
 const SendIcon = () => <Svg><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></Svg>;
 const TrashIcon = () => <Svg><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></Svg>;
 
-const Avatar = ({ name, online }) => {
+const Avatar = ({ name, online, src }) => {
   const { t } = useTranslation();
+  const [bad, setBad] = useState(null); // the url that failed to load, so a new picture is tried again
+  const showPic = src && bad !== src;
   return (
     <span className="avatar-wrap">
-      <span className="avatar">{initials(name)}</span>
+      <span className="avatar">{showPic ? <img src={src} alt="" onError={() => setBad(src)} /> : initials(name)}</span>
       <span className={`online-dot ${online ? 'on' : ''}`} role="img" aria-label={online ? t('chat.online') : t('chat.offline')} />
     </span>
   );
@@ -106,9 +110,12 @@ export default function Messages() {
   const box = useRef(null); const atBottom = useRef(true); const lastTyping = useRef(0); const input = useRef(null);
   const active = convs?.find((c) => c.id === activeId);
   const peerIds = useMemo(() => (convs ?? []).map((c) => c.other.id).join(','), [convs]);
+  const pics = useAvatars(peerIds.split(','));
 
   // System-made messages (calls, photos) are stored in English in the database; show them in the chosen language.
   const tr = (s) => ({ 'Voice call': t('chat.voiceCall'), 'Video call': t('chat.videoCall'), '📷 Photo': t('chat.photoMsg'), '🎤 Voice message': t('chat.voiceMsg') }[s] ?? s);
+  // A voice message is stored as text with a microphone emoji; show a clean icon instead of the emoji.
+  const preview = (s) => (s === '🎤 Voice message' ? <span className="mic-prev"><Mic size={14} aria-hidden="true" />{t('chat.voiceMsg')}</span> : tr(s));
   const tick = (m) => (m.pending ? '🕓' : m.failed ? '⚠️' : m.readAt ? <span className="tick read" title={t('chat.read')}>✓✓</span> : m.deliveredAt ? '✓✓' : '✓');
 
   const loadConvs = useCallback(() => api.get('/realtime/conversations').then((d) => setConvs(d.conversations)).catch(() => setConvs([])), []);
@@ -269,11 +276,11 @@ export default function Messages() {
             const mine = c.lastMessage?.sender === user.id;
             return (
               <button key={c.id} role="listitem" className="conv" aria-current={c.id === activeId} onClick={() => nav(`/messages/${c.id}`)}>
-                <Avatar name={c.other.name} online={online.has(c.other.id)} />
+                <Avatar name={c.other.name} online={online.has(c.other.id)} src={pics[c.other.id]} />
                 <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                   <strong>{c.other.name}</strong>
                   <span className="faint small" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: c.unread > 0 ? 700 : undefined }}>
-                    {typingIn[c.id] ? <span className="typing-now">{t('chat.typing')}</span> : <>{c.item?.title}{c.lastMessage ? ` · ${mine ? t('chat.you') : ''}${tr(c.lastMessage.text)}` : ''}</>}
+                    {typingIn[c.id] ? <span className="typing-now">{t('chat.typing')}</span> : <>{c.item?.title}{c.lastMessage ? <>{` · ${mine ? t('chat.you') : ''}`}{preview(c.lastMessage.text)}</> : ''}</>}
                   </span>
                 </span>
                 <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
@@ -289,7 +296,7 @@ export default function Messages() {
             <>
               <div className="thread-head">
                 <Button size="sm" className="back" onClick={() => nav('/messages')} aria-label={t('chat.back')} style={{ display: window.innerWidth > 780 ? 'none' : undefined }}>←</Button>
-                <Avatar name={active.other.name} online={peerOnline} />
+                <Avatar name={active.other.name} online={peerOnline} src={pics[active.other.id]} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <strong>{active.other.name}</strong>
                   <div className="faint small">{active.item?.title} · {!connected ? t('chat.reconnecting') : typingIn[active.id] ? <span className="typing-now">{t('chat.typing')}</span> : peerOnline ? <span style={{ color: '#4ade80' }}>{t('chat.onlineLbl')}</span> : t('chat.offlineLbl')}</div>

@@ -283,6 +283,17 @@ export function createAuthApp({ env, logger, bus, redis = null }) {
     } catch (e) { next(e); }
   });
 
+  // Profile pictures of several people at once (the chat list shows the other person's picture). Only people who have a
+  // picture are returned, with the same versioned url as /me, so a changed picture is picked up the next time this is asked.
+  const avatarsQuery = z.object({ ids: z.string().max(1300).transform((v) => [...new Set(v.split(',').filter(Boolean))]).pipe(z.array(objectId).min(1).max(50)) }).strict();
+  app.get('/avatars', auth, avatarLimit, validate(avatarsQuery, 'query'), async (req, res, next) => {
+    try {
+      const users = await User.find({ _id: trusted({ $in: req.query.ids }), isActive: true, avatarUrl: trusted({ $ne: '' }) }).select('avatarUrl').lean();
+      res.set('Cache-Control', 'no-store');
+      res.json({ avatars: Object.fromEntries(users.map((u) => [String(u._id), u.avatarUrl])) });
+    } catch (e) { next(e); }
+  });
+
   // ---------- Change email (current password + OTP sent to the NEW address) ----------
   app.post('/email/change/request', auth, sensitiveLimit, emailChangeSendLimit, validate(emailChangeSchema), async (req, res, next) => {
     try {

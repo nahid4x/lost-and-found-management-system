@@ -3,11 +3,20 @@ import { useLive } from './Live.jsx';
 import { useToast } from './Toast.jsx';
 import { api } from '../lib/api.js';
 import { initials } from '../lib/util.js';
+import { useAvatars } from '../lib/avatars.js';
 
 const Ctx = createContext(null);
 export const useCall = () => useContext(Ctx);
 
 const emit = (socket, ev, payload) => new Promise((res) => socket.timeout(8000).emit(ev, payload, (err, r) => res(err ? { error: 'timeout' } : r)));
+
+/** Big picture of the person on the other end: their profile picture, or their initials when they have none. */
+function CallAvatar({ peer }) {
+  const pics = useAvatars([peer.id]);
+  const src = pics[peer.id];
+  const [bad, setBad] = useState(null);
+  return <div className="avatar" style={{ width: 96, height: 96, fontSize: 32 }}>{src && bad !== src ? <img src={src} alt="" onError={() => setBad(src)} /> : initials(peer.name)}</div>;
+}
 
 /** WebRTC audio/video calls. Media is peer-to-peer (TURN relay if needed); the server only relays signalling. */
 export function CallProvider({ children }) {
@@ -253,7 +262,7 @@ function CallOverlay({ call, remote, localStream, onAccept, onHangup, onMute, on
         {remote && !ended && <Stream stream={remote} kind={video ? 'video' : 'audio'} className={video ? 'remote' : undefined} />}
         {(!video || !remote || ended) && (
           <div className="call-who"><div className="col" style={{ alignItems: 'center' }}>
-            <div className="avatar" style={{ width: 96, height: 96, fontSize: 32 }}>{initials(call.peer.name)}</div>
+            <CallAvatar peer={call.peer} />
             <h2 style={{ margin: 0 }}>{call.peer.name}</h2>
             <p className="muted" aria-live="polite" style={{ fontVariantNumeric: 'tabular-nums', fontSize: ended ? '1.15rem' : undefined }}>{label}</p>
           </div></div>
