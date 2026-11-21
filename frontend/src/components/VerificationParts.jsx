@@ -38,6 +38,11 @@ export function VerificationCard({ v, thresholds, reviewState }) {
           <div style={{ fontWeight: 800, fontSize: '1.15rem' }}>{t('verif.match', { score: v.score })} <span className={`chip lvl-chip ${v.level}`}>{t(`verif.level_${v.level}`, { defaultValue: title })}</span></div>
           <div className="muted small">{t('verif.matched', { matched: v.matched, total: v.total })}{v.approximate ? t('verif.approx', { n: v.approximate }) : ''}{v.answered < v.total ? t('verif.blankN', { n: v.total - v.answered }) : ''}</div>
           <div className="small"><strong>{t(`verif.advice_${v.level}`, { defaultValue: advice })}</strong> · {status}</div>
+          {v.lowConfidence && (
+            <div className="small" style={{ color: 'var(--amber)', marginTop: 4 }}>
+              {t('verif.fewQuestions', { n: v.total, defaultValue: 'Only {{n}} question(s) were asked, so even a 100% score is weak evidence. Ask for more proof before approving.' })}
+            </div>
+          )}
         </div>
       </div>
       <div className="table-wrap" style={{ marginTop: 10 }}>

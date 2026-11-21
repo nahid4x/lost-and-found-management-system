@@ -30,6 +30,13 @@ export const LIMITS = { activePerUser: 5, pendingPerItem: 10, rejectedWindowHour
 
 const push = (c, to, actor, ip, note) => { c.history.push({ from: c.status, to, actor: String(actor), at: new Date(), ip, note }); c.status = to; };
 
+// Few questions = weak evidence: never show "high" when fewer than minQuestions questions were scored.
+// Computed at read time, so claims stored before this rule are corrected too.
+const levelOf = (score, total, cfg) => {
+  const lvl = levelFor(score, cfg);
+  return total < (cfg.minQuestions ?? VERIFY_DEFAULTS.minQuestions) && lvl === 'high' ? 'medium' : lvl;
+};
+
 export function createClaimsApp({ env, logger, bus, redis = null, storage, authUrl = 'http://auth:4001', itemsUrl = 'http://items:4002', verifyConfig = VERIFY_DEFAULTS, lookupUser }) {
   const { app, finish } = createBaseApp({ service: 'claims', env, logger, redis });
   const auth = authenticate(env);
@@ -52,7 +59,7 @@ export function createClaimsApp({ env, logger, bus, redis = null, storage, authU
     supplementSent: Boolean(c.supplement?.at), history: c.history.map(({ from, to, at }) => ({ from, to, at })),
   });
   const verificationView = (v) => (v?.scored
-    ? { scored: true, score: v.score, level: levelFor(v.score, verifyConfig), matched: v.matched, approximate: v.approximate, total: v.total, answered: v.answered, perQuestion: (v.perQuestion ?? []).map(({ id, question, claimed, result }) => ({ id, question, claimed, result })) }
+    ? { scored: true, score: v.score, level: levelOf(v.score, v.total, verifyConfig), lowConfidence: v.total < (verifyConfig.minQuestions ?? VERIFY_DEFAULTS.minQuestions), matched: v.matched, approximate: v.approximate, total: v.total, answered: v.answered, perQuestion: (v.perQuestion ?? []).map(({ id, question, claimed, result }) => ({ id, question, claimed, result })) }
     : { scored: false, level: 'unscored' });
   const finderView = (c) => ({
     id: String(c._id), itemId: c.itemId, itemTitle: c.itemTitle, status: c.status, createdAt: c.createdAt, decidedAt: c.decidedAt, returnedAt: c.returnedAt,
@@ -123,7 +130,7 @@ export function createClaimsApp({ env, logger, bus, redis = null, storage, authU
       outcome = verification.scored ? 'scored' : 'unscored';
       await logAttempt();
       await record({ action: 'claim.create', actor: req.user.id, targetType: 'claim', targetId: String(c._id), ip: req.ip });
-      await bus.publish('claim.created', { claimId: String(c._id), itemId, itemTitle: f.title, claimant: req.user.id, claimantName: req.user.name, finder: f.owner, score: verification.scored ? verification.score : null, level: verification.scored ? levelFor(verification.score, verifyConfig) : null });
+      await bus.publish('claim.created', { claimId: String(c._id), itemId, itemTitle: f.title, claimant: req.user.id, claimantName: req.user.name, finder: f.owner, score: verification.scored ? verification.score : null, level: verification.scored ? levelOf(verification.score, verification.total, verifyConfig) : null });
       res.status(201).json({ claim: claimantView(c) });
     } catch (e) {
       if (!recorded) outcome = e.code ?? (e.status === 400 ? 'invalid' : 'error');
