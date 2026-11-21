@@ -21,7 +21,7 @@ function windowLimiter(max, windowMs) {
   };
 }
 
-const sendSchema = z.object({ conversationId: objectId, text: z.string().min(1).max(4000), clientId: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/) }).strict();
+const sendSchema = z.object({ conversationId: objectId, text: z.string().min(1).max(4000), clientId: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/), replyTo: objectId.optional() }).strict();
 const convSchema = z.object({ conversationId: objectId }).strict();
 const typingSchema = z.object({ conversationId: objectId, typing: z.boolean() }).strict();
 const deleteSchema = z.object({ conversationId: objectId, messageId: objectId }).strict();
@@ -126,16 +126,22 @@ export function attachSocket({ httpServer, env, logger, bus, presence, adapter, 
       });
     };
 
-    on('message:send', sendSchema, async ({ conversationId, text, clientId }) => {
+    on('message:send', sendSchema, async ({ conversationId, text, clientId, replyTo }) => {
       const c = await member(conversationId, me.id);
       if (!c) return { error: 'forbidden' };
       const clean = plainText(text, 2000);
       if (!clean) return { error: 'invalid' };
       const existing = await Message.findOne({ conversation: conversationId, clientId });
       if (existing) return { ok: true, message: messageView(existing), duplicate: true }; // idempotent re-send after reconnect
+      let quote;
+      if (replyTo) { // you can only answer a message that is in this same chat and has not been deleted
+        const orig = await Message.findOne({ _id: replyTo, conversation: conversationId });
+        if (!orig || orig.deletedAt) return { error: 'invalid' };
+        quote = { id: String(orig._id), sender: orig.sender, kind: orig.kind ?? 'text', text: String(orig.text ?? '').slice(0, 140) };
+      }
       const peer = other(c, me.id);
       const online = await isOnline(peer);
-      const msg = await Message.create({ conversation: conversationId, sender: me.id, text: clean, clientId, deliveredAt: online ? new Date() : undefined });
+      const msg = await Message.create({ conversation: conversationId, sender: me.id, text: clean, clientId, ...(quote ? { replyTo: quote } : {}), deliveredAt: online ? new Date() : undefined });
       await Conversation.updateOne({ _id: c._id }, { lastMessageAt: msg.createdAt, hiddenFor: [] });
       const view = messageView(msg);
       if (c.hiddenFor?.includes(peer)) io.to(room(peer)).emit('conversation:new', { id: conversationId }); // reappears in their list
@@ -155,6 +161,7 @@ export function attachSocket({ httpServer, env, logger, bus, presence, adapter, 
         if (m.kind === 'image' && m.image?.id) await ChatImage.deleteOne({ _id: m.image.id, conversation: conversationId });
         if (m.kind === 'voice' && m.voice?.id) await ChatVoice.deleteOne({ _id: m.voice.id, conversation: conversationId });
         await Message.updateOne({ _id: m._id }, { deletedAt: new Date(), text: 'This message was deleted', $unset: { image: 1, voice: 1 } });
+        await Message.updateMany({ conversation: conversationId, 'replyTo.id': String(m._id) }, { $set: { 'replyTo.deleted': true, 'replyTo.text': '' } }); // quotes of it no longer show its words
         const payload = { conversationId, messageId: String(m._id) };
         io.to(room(other(c, me.id))).emit('message:deleted', payload);
         socket.to(room(me.id)).emit('message:deleted', payload); // sender's other tabs

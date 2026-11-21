@@ -162,6 +162,50 @@ describe('chat', () => {
   });
 });
 
+describe('replies', () => {
+  const send = (s, text, extra = {}) => emit(s, 'message:send', { conversationId: conv, text, clientId: cid(), ...extra });
+
+  it('keeps a short copy of the answered message, shows it to both people and in history', async () => {
+    const a = await connect(tok(A, 'Alice F')); const b = await connect(tok(B, 'Bob C'));
+    const first = await send(a, 'x'.repeat(300));
+    expect(first.ok).toBe(true);
+    const got = once(a, 'message:new');
+    const ack = await send(b, 'Yes it is mine', { replyTo: first.message.id });
+    expect(ack.ok).toBe(true);
+    expect(ack.message.replyTo).toEqual({ id: first.message.id, sender: A, kind: 'text', text: 'x'.repeat(140), deleted: false });
+    expect((await got).replyTo.id).toBe(first.message.id);
+    const hist = await request(app).get(`/conversations/${conv}/messages`).set(H(A, 'Alice F'));
+    expect(hist.body.messages.at(-1).replyTo.sender).toBe(A);
+    expect(hist.body.messages[0].replyTo).toBeNull();
+  });
+
+  it('only accepts a reply to a message that exists, is in the same chat and is not deleted', async () => {
+    await bus.publish('claim.approved', { claimId: 'y', itemId: '64c000000000000000000002', itemTitle: 'Keys', finder: A, finderName: 'Alice F', claimant: C, claimantName: 'Cara D' });
+    const other = (await request(app).get('/conversations').set(H(A, 'Alice F'))).body.conversations.find((c) => c.id !== conv).id;
+    const a = await connect(tok(A, 'Alice F'));
+    const elsewhere = await emit(a, 'message:send', { conversationId: other, text: 'in another chat', clientId: cid() });
+    expect((await send(a, 'sneaky', { replyTo: elsewhere.message.id })).error).toBe('invalid');
+    expect((await send(a, 'ghost', { replyTo: '64d000000000000000000009' })).error).toBe('invalid');
+    expect((await send(a, 'bad id', { replyTo: 'nope' })).error).toBeTruthy();
+    const mine = await send(a, 'to be removed');
+    expect((await emit(a, 'message:delete', { conversationId: conv, messageId: mine.message.id })).ok).toBe(true);
+    expect((await send(a, 'too late', { replyTo: mine.message.id })).error).toBe('invalid');
+    expect(await Message.countDocuments({ conversation: conv })).toBe(1);
+  });
+
+  it('deleting the original removes its words from every quote of it', async () => {
+    const a = await connect(tok(A, 'Alice F')); const b = await connect(tok(B, 'Bob C'));
+    const first = await send(a, 'my secret plan');
+    await send(b, 'ok', { replyTo: first.message.id });
+    expect((await emit(a, 'message:delete', { conversationId: conv, messageId: first.message.id })).ok).toBe(true);
+    const hist = await request(app).get(`/conversations/${conv}/messages`).set(H(B, 'Bob C'));
+    const quote = hist.body.messages.at(-1).replyTo;
+    expect(quote.deleted).toBe(true);
+    expect(quote.text).toBe('');
+    expect(JSON.stringify(hist.body)).not.toMatch(/secret plan/);
+  });
+});
+
 describe('voice messages', () => {
   const webm = (n = 400) => Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(n, 7)]);
   const post = (id, name, body, type = 'audio/webm;codecs=opus', q = '?dur=5&peaks=0123456789012345678901234567890123456789') => request(app).post(`/conversations/${conv}/voice${q}`).set(H(id, name)).set('Content-Type', type).send(body);
