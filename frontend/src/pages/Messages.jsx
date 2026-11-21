@@ -2,7 +2,7 @@ import '../styles/chat.css';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Mic } from 'lucide-react';
+import { Mic, Reply } from 'lucide-react';
 import { Glass, Button, Empty, Skeleton } from '../components/ui.jsx';
 import { useAuth } from '../context/Auth.jsx';
 import { useLive } from '../context/Live.jsx';
@@ -11,6 +11,8 @@ import { useToast } from '../context/Toast.jsx';
 import VoiceInput from '../components/VoiceInput.jsx';
 import { api, getToken, refresh } from '../lib/api.js';
 import { useAvatars } from '../lib/avatars.js';
+import { canReply, quoteOf, quotesDeleted } from '../lib/replies.js';
+import { Quote, ReplyBar } from '../components/Quote.jsx';
 import { errMsg, fmtTime, initials, timeAgo } from '../lib/util.js';
 import { VoiceMessage, VoiceRecorder, canRecord } from '../components/VoiceMessage.jsx';
 
@@ -102,6 +104,8 @@ export default function Messages() {
   const [msgs, setMsgs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState(null); // the message being answered, or null
+  useEffect(() => { setReplyTo(null); }, [activeId]);
   const [typingIn, setTypingIn] = useState({}); // conversationId -> is the other person typing
   const [online, setOnline] = useState(() => new Set()); // user ids that are online now
   const [unseen, setUnseen] = useState(false);
@@ -134,7 +138,8 @@ export default function Messages() {
 
   const merge = (list, m) => (list.some((x) => x.id === m.id || x.clientId === m.clientId) ? list.map((x) => (x.clientId === m.clientId || x.id === m.id ? { ...x, ...m, pending: false, failed: false } : x)) : [...list, m]);
   const applyDeleted = useCallback((id) => {
-    setMsgs((l) => l.map((x) => (x.id === id ? { ...x, deleted: true, text: 'This message was deleted', kind: 'text', image: null, voice: null, localUrl: null } : x)));
+    setMsgs((l) => quotesDeleted(l.map((x) => (x.id === id ? { ...x, deleted: true, text: 'This message was deleted', kind: 'text', image: null, voice: null, localUrl: null } : x)), id));
+    setReplyTo((r) => (r?.id === id ? null : r));
     loadConvs();
   }, [loadConvs]);
 
@@ -193,9 +198,10 @@ export default function Messages() {
     const body = (retry?.text ?? text).trim();
     if (!body || !activeId || !socket) return;
     const clientId = retry?.clientId ?? crypto.randomUUID();
-    if (!retry) { setMsgs((l) => [...l, { id: clientId, clientId, conversation: activeId, sender: user.id, text: body, createdAt: new Date().toISOString(), pending: true }]); setText(''); setTimeout(() => { resize(); scrollDown(); }, 30); }
+    const quote = retry ? retry.replyTo : (replyTo ? quoteOf(replyTo) : null);
+    if (!retry) { setMsgs((l) => [...l, { id: clientId, clientId, conversation: activeId, sender: user.id, text: body, replyTo: quote, createdAt: new Date().toISOString(), pending: true }]); setText(''); setReplyTo(null); setTimeout(() => { resize(); scrollDown(); }, 30); }
     else setMsgs((l) => l.map((m) => (m.clientId === clientId ? { ...m, failed: false, pending: true } : m)));
-    socket.emit('message:send', { conversationId: activeId, text: body, clientId }, (ack) => {
+    socket.emit('message:send', { conversationId: activeId, text: body, clientId, ...(quote?.id ? { replyTo: quote.id } : {}) }, (ack) => {
       if (ack?.ok) { setMsgs((l) => merge(l, ack.message)); setConvs((c) => c?.map((x) => (x.id === activeId ? { ...x, lastMessage: { text: ack.message.text, sender: user.id, createdAt: ack.message.createdAt }, lastMessageAt: ack.message.createdAt } : x))); }
       else { setMsgs((l) => l.map((m) => (m.clientId === clientId ? { ...m, pending: false, failed: true } : m))); toast.error(ack?.error === 'rate_limited' ? t('chat.slowDown') : t('chat.notSent')); }
     });
@@ -261,7 +267,15 @@ export default function Messages() {
     clearTimeout(onType.t); onType.t = setTimeout(() => socket?.emit('typing', { conversationId: activeId, typing: false }, () => {}), 2500);
   };
   // Enter sends, Shift+Enter adds a new line (ignored while an IME is composing text).
-  const onKeyDown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) send(e); };
+  const onKeyDown = (e) => { if (e.key === 'Escape' && replyTo) setReplyTo(null); else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) send(e); };
+  const startReply = (m) => { setReplyTo(m); setTimeout(() => input.current?.focus(), 0); };
+  const jumpTo = (id) => {
+    const el = document.getElementById(`m-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1400);
+  };
+  const whoName = (sender) => (sender === user.id ? t('chat.youName') : active?.other.name);
   const canDelete = (m) => m.sender === user.id && !m.pending && !m.failed && !m.deleted && m.kind !== 'call';
 
   if (!convs) return <div className="container"><Skeleton h={420} /></div>;
@@ -313,11 +327,13 @@ export default function Messages() {
                       <div className="faint small" style={{ alignSelf: 'center', padding: '4px 12px', margin: '8px 0', borderRadius: 999, background: 'rgba(255,255,255,0.08)' }}>{dayLabel(m.createdAt, t, i18n.language)}</div>
                     )}
                     <div
+                      id={`m-${m.id}`}
                       className={`bubble ${m.sender === user.id ? 'me' : ''} ${m.pending ? 'pending' : ''} ${m.deleted ? 'deleted' : ''}`}
                       style={{ whiteSpace: 'pre-wrap' }}
                     >
+                      {m.replyTo && !m.deleted && <Quote name={whoName(m.replyTo.sender)} deleted={m.replyTo.deleted} deletedLabel={t('chat.deletedMsg')} onJump={() => jumpTo(m.replyTo.id)}>{preview(m.replyTo.text)}</Quote>}
                       {m.deleted ? <em className="faint">🚫 {t('chat.deletedMsg')}</em> : m.kind === 'image' ? <ChatImage m={m} convId={activeId} /> : m.kind === 'voice' ? <VoiceMessage m={m} convId={activeId} /> : m.kind === 'call' ? tr(m.text) : m.text}
-                      <small>{fmtTime(m.createdAt)} {m.sender === user.id && tick(m)} {m.failed && <button className="btn sm" onClick={() => send(null, m)}>{t('chat.retry')}</button>}{canDelete(m) && <button type="button" className="msg-x" onClick={() => deleteMsg(m)} aria-label={t('chat.deleteMsg')} title={t('chat.deleteMsg')}><TrashIcon /></button>}</small>
+                      <small>{fmtTime(m.createdAt)} {m.sender === user.id && tick(m)} {m.failed && <button className="btn sm" onClick={() => send(null, m)}>{t('chat.retry')}</button>}{canReply(m) && <button type="button" className="msg-x" onClick={() => startReply(m)} aria-label={t('chat.reply')} title={t('chat.reply')}><Reply aria-hidden="true" /></button>}{canDelete(m) && <button type="button" className="msg-x" onClick={() => deleteMsg(m)} aria-label={t('chat.deleteMsg')} title={t('chat.deleteMsg')}><TrashIcon /></button>}</small>
                     </div>
                   </Fragment>
                 ))}
@@ -326,6 +342,7 @@ export default function Messages() {
               <div className="typing" aria-live="polite">
                 {typingIn[activeId] && <span className="typing-pill"><span className="dots" aria-hidden="true"><i /><i /><i /></span>{t('chat.isTyping', { name: active.other.name })}</span>}
               </div>
+              {replyTo && <ReplyBar title={t('chat.replyingTo', { name: whoName(replyTo.sender) })} cancelLabel={t('chat.cancelReply')} onCancel={() => setReplyTo(null)}>{replyTo.kind === 'text' ? replyTo.text : preview(replyTo.text)}</ReplyBar>}
               <form className="composer" onSubmit={send}>
                 <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { sendImage(e.target.files?.[0]); e.target.value = ''; }} />
                 <button type="button" className="chat-btn" disabled={uploading} onClick={() => fileRef.current?.click()} aria-label={t('chat.sendPhoto')} title={t('chat.sendPhoto')}>{uploading ? '…' : <ClipIcon />}</button>
