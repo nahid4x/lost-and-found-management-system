@@ -1,3 +1,4 @@
+import { Inbox, Eye, EyeOff } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Glass, Tabs, Button, Chip, Modal, Skeleton, BarChart, Field, Empty, Reveal } from '../components/ui.jsx';
@@ -93,10 +94,10 @@ function Reports({ ask }) {
       <div className="row"><Field aria-label={t('admin.reports.searchAria')} placeholder={t('admin.reports.searchPh')} value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} style={{ minWidth: 240 }} />
         <Field as="select" aria-label={t('admin.col.status')} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">{t('admin.anyStatus')}</option>{['open', 'matched', 'claimed', 'verified', 'returned', 'closed'].map((s) => <option key={s} value={s}>{st(s)}</option>)}</Field><span className="spacer" />
         {sel.size > 0 && <Button size="sm" variant="danger" onClick={bulkHide}>{t('admin.reports.bulkBtn', { n: sel.size })}</Button>}</div>
-      {!rows ? <Skeleton h={200} /> : !rows.length ? <Empty icon="📭" title={t('admin.reports.emptyTitle')}>{t('admin.reports.emptyText')}</Empty> : <div className="table-wrap"><table><thead><tr><th /><th>{t('admin.col.title')}</th><th>{t('admin.col.type')}</th><th>{t('admin.col.status')}</th><th>{t('admin.col.area')}</th><th>{t('admin.col.owner')}</th><th>{t('admin.col.visibility')}</th><th>{t('admin.col.actions')}</th></tr></thead><tbody>
+      {!rows ? <Skeleton h={200} /> : !rows.length ? <Empty icon={<Inbox size={40} strokeWidth={1.5} />} title={t('admin.reports.emptyTitle')}>{t('admin.reports.emptyText')}</Empty> : <div className="table-wrap"><table><thead><tr><th /><th>{t('admin.col.title')}</th><th>{t('admin.col.type')}</th><th>{t('admin.col.status')}</th><th>{t('admin.col.area')}</th><th>{t('admin.col.owner')}</th><th>{t('admin.col.visibility')}</th><th>{t('admin.col.actions')}</th></tr></thead><tbody>
         {rows.map((r) => (
           <tr key={r.id}><td><input type="checkbox" aria-label={t('admin.select', { name: r.title })} checked={sel.has(r.id)} onChange={(e) => setSel((s) => { const n = new Set(s); e.target.checked ? n.add(r.id) : n.delete(r.id); return n; })} /></td>
-            <td>{r.title}</td><td><Chip kind={r.type} /></td><td><Chip kind={r.status} /></td><td>{r.area.label}</td><td>{r.ownerName}</td><td>{r.hidden ? t('admin.reports.hiddenLabel') : t('admin.reports.publicLabel')}</td>
+            <td>{r.title}</td><td><Chip kind={r.type} /></td><td><Chip kind={r.status} /></td><td>{r.area.label}</td><td>{r.ownerName}</td><td><span className="ico-row" style={{ flexWrap: 'nowrap' }}>{r.hidden ? <><EyeOff size={14} /> {t('admin.reports.hiddenLabel')}</> : <><Eye size={14} /> {t('admin.reports.publicLabel')}</>}</span></td>
             <td className="row" style={{ flexWrap: 'nowrap' }}><Button size="sm" onClick={() => patch(r.id, { hidden: !r.hidden })}>{r.hidden ? t('admin.reports.unhide') : t('admin.reports.hide')}</Button>
               <Button size="sm" variant="danger" onClick={() => ask(t('admin.reports.delTitle', { title: r.title }), t('admin.reports.delText'), async () => { await api.del(`/items/admin/items/${r.id}`).catch((e) => toast.error(errMsg(e))); reload(); })}>{t('admin.reports.delete')}</Button></td></tr>
         ))}</tbody></table></div>}

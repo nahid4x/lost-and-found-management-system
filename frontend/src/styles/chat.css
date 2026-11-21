@@ -105,6 +105,7 @@
 
 /* "Voice message" preview in the chat list: a microphone icon instead of an emoji (stays inline so the long line still ends in "…") */
 .mic-prev svg { display: inline-block; vertical-align: -2px; margin-inline-end: 4px; }
+.bubble small svg { vertical-align: -2px; }
 
 /* Replying to a message: the bar above the writing box, the quote inside a bubble, and the flash when you jump to the original */
 .reply-bar { display: flex; align-items: center; gap: 8px; margin: 0 12px 6px; padding: 8px 8px 8px 12px; border-radius: 12px; border-inline-start: 3px solid var(--teal, #2dd4bf); background: rgba(127, 127, 127, 0.16); }

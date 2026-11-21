@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BadgeCheck, AlertCircle } from 'lucide-react';
+import { BadgeCheck, AlertCircle, Camera, Mail } from 'lucide-react';
 import { useAuth } from '../context/Auth.jsx';
 import { api } from '../lib/api.js';
 import { errMsg, initials } from '../lib/util.js';
@@ -101,7 +101,7 @@ export default function Profile() {
           <div className="avatar profile-avatar">
             {user.avatarUrl ? <img src={user.avatarUrl} alt={t('profile.avatarAlt', { name: user.name })} /> : initials(user.name)}
           </div>
-          <button type="button" className="icon-btn profile-cam" aria-label={t('profile.changePhoto')} disabled={busy} onClick={() => fileRef.current?.click()}>📷</button>
+          <button type="button" className="icon-btn profile-cam" aria-label={t('profile.changePhoto')} disabled={busy} onClick={() => fileRef.current?.click()}><Camera size={16} /></button>
           <input ref={fileRef} type="file" accept={TYPES.join(',')} hidden onChange={onAvatar} />
         </div>
         <div className="profile-meta">
@@ -126,7 +126,7 @@ export default function Profile() {
 
       {!user.emailVerified && (
         <div className="profile-verify" role="status">
-          <span>✉️ {t('profile.verifyBanner', { defaultValue: 'Your email address is not verified yet.' })}</span>
+          <span className="ico-row"><Mail size={16} /> {t('profile.verifyBanner', { defaultValue: 'Your email address is not verified yet.' })}</span>
           <Link to="/verify-email" className="btn sm primary">{t('profile.verifyNow')}</Link>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { CheckCircle2, AlertTriangle, Bell, X } from 'lucide-react';
 
 const Ctx = createContext(null);
 export const useToast = () => useContext(Ctx);
@@ -17,9 +18,11 @@ export function ToastProvider({ children }) {
       <div className="toasts" role="status" aria-live="polite">
         {items.map((t) => (
           <div key={t.id} className={`toast glass ${t.type}`}>
-            <span aria-hidden>{t.type === 'success' ? '✅' : t.type === 'error' ? '⚠️' : '🔔'}</span>
+            <span aria-hidden style={{ display: 'inline-flex' }}>
+              {t.type === 'success' ? <CheckCircle2 size={20} strokeWidth={1.75} color="#4ade80" /> : t.type === 'error' ? <AlertTriangle size={20} strokeWidth={1.75} color="#fbbf24" /> : <Bell size={20} strokeWidth={1.75} />}
+            </span>
             <span style={{ flex: 1 }}>{t.message}</span>
-            <button className="icon-btn" style={{ width: 28, height: 28, fontSize: 14 }} aria-label="Dismiss" onClick={() => setItems((x) => x.filter((i) => i.id !== t.id))}>✕</button>
+            <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Dismiss" onClick={() => setItems((x) => x.filter((i) => i.id !== t.id))}><X size={14} strokeWidth={1.75} /></button>
           </div>
         ))}
       </div>

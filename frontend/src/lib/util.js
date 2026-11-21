@@ -5,10 +5,9 @@ const T = (k, o) => i18n.t(k, o);
 const loc = () => (i18n.language === 'bn' ? 'bn-BD' : undefined);
 
 export const CATEGORIES = [
-  ['electronics', 'Electronics', '📱'], ['wallet', 'Wallet & cards', '👛'], ['keys', 'Keys', '🔑'], ['bags', 'Bags', '🎒'], ['clothing', 'Clothing', '🧥'],
-  ['documents', 'Documents & ID', '📄'], ['jewelry', 'Jewelry', '💍'], ['pets', 'Pets', '🐾'], ['toys', 'Toys', '🧸'], ['sports', 'Sports', '⚽'], ['other', 'Other', '📦'],
+  ['electronics', 'Electronics'], ['wallet', 'Wallet & cards'], ['keys', 'Keys'], ['bags', 'Bags'], ['clothing', 'Clothing'],
+  ['documents', 'Documents & ID'], ['jewelry', 'Jewelry'], ['pets', 'Pets'], ['toys', 'Toys'], ['sports', 'Sports'], ['other', 'Other'],
 ];
-export const catEmoji = (c) => CATEGORIES.find((x) => x[0] === c)?.[2] ?? '📦';
 export const catLabel = (c) => T(`cat.${c}`, { defaultValue: CATEGORIES.find((x) => x[0] === c)?.[1] ?? c });
 export const STATUS_FLOW = ['open', 'matched', 'claimed', 'verified', 'returned', 'closed'];
 

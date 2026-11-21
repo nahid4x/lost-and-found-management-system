@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { ListChecks, MapPinned, MapPin, SearchX } from 'lucide-react';
 import { Glass, Field, Button, Empty, SkeletonGrid, Reveal } from '../components/ui.jsx';
 import { ItemCard } from '../components/ItemParts.jsx';
 import { MapView } from '../components/maps.jsx';
@@ -46,8 +47,8 @@ export default function ItemsPage({ type }) {
       <Reveal>
         <div className="row" style={{ marginBottom: 16 }}>
           <h1 style={{ margin: 0, fontSize: '2.2rem' }}>{type === 'lost' ? t('items.lostTitle') : t('items.foundTitle')}</h1><span className="spacer" />
-          <Button size="sm" aria-pressed={view === 'list'} onClick={() => setView('list')}>▦ {t('items.list')}</Button>
-          <Button size="sm" aria-pressed={view === 'map'} onClick={() => setView('map')}>🗺️ {t('items.map')}</Button>
+          <Button size="sm" aria-pressed={view === 'list'} onClick={() => setView('list')}><ListChecks size={14} /> {t('items.list')}</Button>
+          <Button size="sm" aria-pressed={view === 'map'} onClick={() => setView('map')}><MapPinned size={14} /> {t('items.map')}</Button>
           <Button variant="primary" size="sm" onClick={() => nav(`/report/${type}`)}>{type === 'lost' ? t('items.reportLost') : t('items.reportFound')}</Button>
         </div>
         <Glass as="form" pad onSubmit={(e) => e.preventDefault()} className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 20 }} role="search" aria-label={t('items.filters')}>
@@ -56,11 +57,11 @@ export default function ItemsPage({ type }) {
           <Field label={t('items.fromDate')} type="date" value={f.from} onChange={(e) => set('from', e.target.value)} />
           <Field label={t('items.toDate')} type="date" value={f.to} onChange={(e) => set('to', e.target.value)} />
           <Field label={t('items.radius')} as="select" value={f.lat ? f.radiusKm || '10' : ''} disabled={!f.lat} onChange={(e) => set('radiusKm', e.target.value)}>{[1, 2, 5, 10, 25, 50].map((r) => <option key={r} value={r}>{t('items.km', { value: r })}</option>)}<option value="">—</option></Field>
-          <div className="field"><label>{t('items.nearMe')}</label><div className="row"><Button type="button" size="sm" onClick={locate}>📍 {t('items.useLocation')}</Button>{f.lat && <Button type="button" size="sm" onClick={() => { const n = new URLSearchParams(sp); ['lat', 'lng', 'radiusKm'].forEach((k) => n.delete(k)); setSp(n, { replace: true }); }}>{t('items.clear')}</Button>}</div></div>
+          <div className="field"><label>{t('items.nearMe')}</label><div className="row"><Button type="button" size="sm" onClick={locate}><MapPin size={14} /> {t('items.useLocation')}</Button>{f.lat && <Button type="button" size="sm" onClick={() => { const n = new URLSearchParams(sp); ['lat', 'lng', 'radiusKm'].forEach((k) => n.delete(k)); setSp(n, { replace: true }); }}>{t('items.clear')}</Button>}</div></div>
         </Glass>
       </Reveal>
       {view === 'map' ? <MapView tall items={mapItems} onSelect={(i) => nav(`/items/${i.id}`)} /> : !items ? <SkeletonGrid /> : !items.length ? (
-        <Empty icon="🕵️" title={t('items.emptyTitle')} action={<Button variant="primary" onClick={() => nav(`/report/${type}`)}>{t('items.createReport')}</Button>}>{type === 'lost' ? t('items.emptyLost') : t('items.emptyFound')}</Empty>
+        <Empty icon={<SearchX size={40} strokeWidth={1.5} />} title={t('items.emptyTitle')} action={<Button variant="primary" onClick={() => nav(`/report/${type}`)}>{t('items.createReport')}</Button>}>{type === 'lost' ? t('items.emptyLost') : t('items.emptyFound')}</Empty>
       ) : (
         <>
           <p className="muted" aria-live="polite">{t('items.results', { count: total })}</p>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ImagePlus, X } from 'lucide-react';
 import { checkImages, IMG_TYPES, MAX_IMG_MB } from '../lib/util.js';
 
 /** Drag & drop image picker with client-side type/size checks (the server re-validates by magic bytes). */
@@ -22,7 +23,7 @@ export function Dropzone({ files, onChange, max = 5, label }) {
         onClick={() => input.current?.click()} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), input.current?.click())}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); add([...e.dataTransfer.files]); }}>
-        <div style={{ fontSize: '2rem' }} aria-hidden>🖼️</div><strong>{text}</strong>
+        <div aria-hidden style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}><ImagePlus size={32} strokeWidth={1.5} /></div><strong>{text}</strong>
         <div className="hint">{t('dz.hint', { mb: MAX_IMG_MB, max })}</div>
         <input ref={input} type="file" accept={IMG_TYPES.join(',')} multiple hidden onChange={(e) => { add([...e.target.files]); e.target.value = ''; }} />
       </div>
@@ -31,7 +32,7 @@ export function Dropzone({ files, onChange, max = 5, label }) {
         <div className="previews">
           {files.map((f, i) => (
             <div key={f.name + i}><img src={previews[i]} alt={t('dz.selected', { n: i + 1 })} />
-              <button type="button" className="icon-btn" style={{ width: 28, height: 28, fontSize: 12 }} aria-label={t('dz.remove', { n: i + 1 })} onClick={() => onChange(files.filter((_, k) => k !== i))}>✕</button></div>
+              <button type="button" className="icon-btn" style={{ width: 28, height: 28 }} aria-label={t('dz.remove', { n: i + 1 })} onClick={() => onChange(files.filter((_, k) => k !== i))}><X size={14} strokeWidth={1.75} /></button></div>
           ))}
         </div>
       )}

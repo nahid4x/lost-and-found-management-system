@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { X, Search } from 'lucide-react';
 import { motionOff } from '../lib/a11y.js';
 
 export const cx = (...a) => a.filter(Boolean).join(' ');
@@ -58,7 +59,7 @@ export function Modal({ open, onClose, title, wide, children }) {
       <div ref={ref} className={cx('glass modal', wide && 'wide')} role="dialog" aria-modal="true" aria-label={title}>
         <div className="row" style={{ marginBottom: 12 }}>
           <h2 style={{ margin: 0, fontSize: '1.4rem' }}>{title}</h2><span className="spacer" />
-          <button className="icon-btn" onClick={onClose} aria-label={t('common.closeDialog')}>✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label={t('common.closeDialog')}><X size={18} strokeWidth={1.75} /></button>
         </div>
         {children}
       </div>
@@ -73,7 +74,7 @@ export function SkeletonGrid({ n = 6, h = 280 }) {
   return <div className="grid cards" aria-busy="true" aria-label={t('common.loading')}>{Array.from({ length: n }, (_, i) => <Skeleton key={i} h={h} />)}</div>;
 }
 
-export function Empty({ icon = '🔍', title, children, action }) {
+export function Empty({ icon = <Search size={40} strokeWidth={1.5} />, title, children, action }) {
   return <Glass className="empty"><div className="big" aria-hidden>{icon}</div><h3>{title}</h3><p className="muted">{children}</p>{action}</Glass>;
 }
 

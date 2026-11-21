@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation, Trans } from 'react-i18next';
+import { FolderOpen, MessageCircle, Trash2 } from 'lucide-react';
 import { Glass, Tabs, Empty, Skeleton, Button, Chip, Modal, Reveal } from '../components/ui.jsx';
 import { VerificationCard, RequestInfoModal, SupplementModal, REVIEW_STATE } from '../components/VerificationParts.jsx';
 import { api } from '../lib/api.js';
@@ -36,7 +37,7 @@ export default function Claims() {
     <div className="container">
       <Reveal><h1 style={{ fontSize: '2.2rem' }}>{t('claims.title')}</h1>
         <Tabs value={tab} onChange={setTab} tabs={[['received', t('claims.received'), pendingCount || null], ['mine', t('claims.mine')]]} /></Reveal>
-      {!list ? <Skeleton h={220} /> : !list.length ? <Empty icon="🗂️" title={t('claims.noneTitle')}>{tab === 'received' ? t('claims.noneReceived') : t('claims.noneMine')}</Empty> : (
+      {!list ? <Skeleton h={220} /> : !list.length ? <Empty icon={<FolderOpen size={40} strokeWidth={1.5} />} title={t('claims.noneTitle')}>{tab === 'received' ? t('claims.noneReceived') : t('claims.noneMine')}</Empty> : (
         <div className="col">{list.map((c) => (
           <Glass key={c.id} pad>
             <div className="row"><Link to={`/items/${c.itemId}`}><strong>{c.itemTitle}</strong></Link><Chip kind={c.status} />{c.returnedAt && <Chip kind="returned" />}<span className="spacer" /><span className="faint small">{timeAgo(c.createdAt)}</span></div>
@@ -54,8 +55,8 @@ export default function Claims() {
             <div className="row" style={{ marginTop: 8 }}>
               {tab === 'received' && c.status === 'pending' && <><Button variant="ok" onClick={() => setConfirm({ c, decision: 'approve' })}>{t('claims.approve')}</Button><Button variant="danger" onClick={() => setConfirm({ c, decision: 'reject' })}>{t('claims.reject')}</Button><Button onClick={() => setInfo(c)} disabled={c.reviewState === 'more_info_requested'}>{c.reviewState === 'more_info_requested' ? t('claims.waiting') : t('claims.requestInfo')}</Button></>}
               {tab === 'mine' && c.status === 'pending' && <Button onClick={() => act(`/claims/${c.id}/withdraw`, undefined, t('claims.withdrawnToast'))}>{t('claims.withdraw')}</Button>}
-              {c.status === 'approved' && !c.returnedAt && <><Link to="/messages" className="btn primary">{t('claims.chat')}</Link><Button onClick={() => act(`/claims/${c.id}/returned`, undefined, t('claims.returnedToast'))}>{t('claims.markReturned')}</Button></>}
-              {isEnded(c) && <><span className="spacer" /><Button variant="danger" onClick={() => setRemove(c)}>{t('claims.delete')}</Button></>}
+              {c.status === 'approved' && !c.returnedAt && <><Link to="/messages" className="btn primary"><MessageCircle size={16} /> {t('claims.chat')}</Link><Button onClick={() => act(`/claims/${c.id}/returned`, undefined, t('claims.returnedToast'))}>{t('claims.markReturned')}</Button></>}
+              {isEnded(c) && <><span className="spacer" /><Button variant="danger" onClick={() => setRemove(c)}><Trash2 size={14} /> {t('claims.delete')}</Button></>}
             </div>
           </Glass>
         ))}</div>

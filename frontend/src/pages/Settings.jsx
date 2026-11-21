@@ -10,7 +10,7 @@ import { SIZES, loadA11y, saveA11y, osPrefersReducedMotion } from '../lib/a11y.j
 import { collectMyData } from '../lib/exportData.js';
 import DataPrint from '../components/DataPrint.jsx';
 import { EmailSection, PasswordSection, DeleteSection } from '../components/AccountSections.jsx';
-
+import { Smartphone, Laptop } from 'lucide-react'; 
 function Language() {
   const { t, i18n } = useTranslation();
   return (
@@ -82,7 +82,7 @@ function Devices() {
         <div role="list">
           {rows.map((s) => (
             <div className="dev-row" role="listitem" key={s.id}>
-              <span className="dev-ico" aria-hidden>{/Android|iOS/.test(s.device) ? '📱' : '💻'}</span>
+              <span className="dev-ico" aria-hidden>{/Android|iOS/.test(s.device) ? <Smartphone size={20} strokeWidth={1.75} /> : <Laptop size={20} strokeWidth={1.75} />}</span>
               <div className="dev-main">
                 <strong>{s.device}{s.current && <Chip kind="verified">{t('settings.devices.thisDevice')}</Chip>}</strong>
                 <div className="faint small">{[s.ip, t('settings.devices.signedIn', { when: timeAgo(s.loginAt) }), t('settings.devices.lastActive', { when: timeAgo(s.lastActive) })].filter(Boolean).join(' · ')}</div>
