@@ -1793,3 +1793,30 @@ span.ico-row { display: inline-flex; flex-wrap: nowrap; }
 }
 :root[data-theme="light"] .rp-badge--neutral { background: rgba(11, 27, 63, .08); }
 :root[data-theme="light"] .rp-badge--muted { background: rgba(11, 27, 63, .06); }
+
+/* Light mode: chat buttons (attach, mic, call, video, delete) */
+:root[data-theme="light"] .chat-btn {
+  color: #0b1b3f;
+  background: #fff;
+  border: 1px solid rgba(11, 27, 63, .2);
+}
+:root[data-theme="light"] .chat-btn:hover:not(:disabled) {
+  background: rgba(37, 99, 235, .1);
+  border-color: rgba(37, 99, 235, .5);
+}
+:root[data-theme="light"] .chat-btn.voice { color: #16a34a; }
+:root[data-theme="light"] .chat-btn.video { color: #2563eb; }
+:root[data-theme="light"] .chat-btn.trash { color: #e11d48; }
+:root[data-theme="light"] .chat-btn.mic-btn.listening {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
+/* Light mode: match ring (Claims AI verification) */
+:root[data-theme="light"] .ring {
+  color: #0b1b3f;
+  background:
+    radial-gradient(closest-side, #fff 76%, transparent 78% 100%),
+    conic-gradient(var(--c) calc(var(--p) * 1%), rgba(11, 27, 63, .12) 0);
+}
+:root[data-theme="light"] .bar { background: rgba(11, 27, 63, .12); }
