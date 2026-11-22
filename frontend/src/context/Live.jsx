@@ -3,6 +3,8 @@ import { useAuth } from './Auth.jsx';
 import { useToast } from './Toast.jsx';
 import { useSocket } from '../lib/useSocket.js';
 import { api } from '../lib/api.js';
+import i18n from '../i18n/index.js';
+import { notifText } from '../lib/notifText.js';
 
 const Ctx = createContext(null);
 export const useLive = () => useContext(Ctx);
@@ -28,7 +30,11 @@ export function LiveProvider({ children }) {
 
   useEffect(() => {
     if (!socket) return undefined;
-    const onNotif = (n) => { setNotifs((c) => c + 1); toast.info(n.title ?? 'New notification'); };
+    const onNotif = (n) => {
+      setNotifs((c) => c + 1);
+      const title = notifText(n, i18n.language).title;
+      toast.info(title ?? (i18n.language?.startsWith('bn') ? 'নতুন নোটিফিকেশন' : 'New notification'));
+    };
     const onMsg = () => setMsgs((c) => c + 1);
     socket.on('notification:new', onNotif);
     socket.on('message:new', onMsg);
