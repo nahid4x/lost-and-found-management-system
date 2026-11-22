@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { timeAgo } from '../lib/util.js';
 import * as store from '../lib/commentsStore.js';
 import * as AuthCtx from '../context/Auth.jsx';
+import AnonIcon from '../components/AnonIcon.jsx';
 
 // Logged-in user. Tomar Auth.jsx-er shape onujayi field name gulo guess kora ache;
 // nam/avatar thik na ashle ekhane field name milao.
@@ -24,6 +25,8 @@ function profilePath(c, me) {
   return c.userId === me.id ? '/profile' : null;
 }
 
+const nameOf = (c) => (c.anonymous ? 'Anonymous' : c.userName);
+
 function useComments(itemId) {
   const [list, setList] = useState(() => store.listComments(itemId));
   const [hidden, setHidden] = useState(() => store.getHidden());
@@ -35,10 +38,8 @@ function useComments(itemId) {
   return { list, hidden };
 }
 
-const nameOf = (c) => (c.anonymous ? 'Anonymous' : c.userName);
-
 function Avatar({ c, me }) {
-  if (c.anonymous) return <span className="cm-av cm-anon" aria-hidden="true">🕶️</span>;
+  if (c.anonymous) return <span className="cm-av cm-anon" aria-hidden="true"><AnonIcon size={20} /></span>;
   const inner = c.userAvatar
     ? <img src={c.userAvatar} alt="" />
     : <span>{(c.userName || '?')[0].toUpperCase()}</span>;
