@@ -7,6 +7,7 @@ import { useLive } from '../context/Live.jsx';
 import { useToast } from '../context/Toast.jsx';
 import { api } from '../lib/api.js';
 import { errMsg, timeAgo } from '../lib/util.js';
+import { notifText } from '../lib/notifText.js';
 
 const ICON = {
   match: <Sparkles size={20} strokeWidth={1.75} />,
@@ -21,14 +22,32 @@ function Toggle({ label, checked, onChange }) {
 }
 
 export default function Notifications() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { refreshCounts, socket } = useLive();
   const toast = useToast();
   const [items, setItems] = useState(null);
   const [prefs, setPrefs] = useState(null);
   const load = () => api.get('/notify/notifications?limit=50').then((d) => setItems(d.items)).catch((e) => { toast.error(errMsg(e)); setItems([]); });
-  useEffect(() => { load(); api.get('/notify/preferences').then((d) => setPrefs(d.preferences)).catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!socket) return undefined; const f = (n) => setItems((l) => [n, ...(l ?? [])]); socket.on('notification:new', f); return () => socket.off('notification:new', f); }, [socket]);
+
+  // Opening this page counts as reading everything: the red dot on the bell goes away.
+  useEffect(() => {
+    load()
+      .then(() => api.post('/notify/notifications/read', { all: true }))
+      .then(() => refreshCounts())
+      .catch(() => {});
+    api.get('/notify/preferences').then((d) => setPrefs(d.preferences)).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A notification that arrives while this page is open is read at once, so the dot does not come back.
+  useEffect(() => {
+    if (!socket) return undefined;
+    const f = (n) => {
+      setItems((l) => [n, ...(l ?? [])]);
+      api.post('/notify/notifications/read', n.id ? { ids: [n.id] } : { all: true }).then(() => refreshCounts()).catch(() => {});
+    };
+    socket.on('notification:new', f);
+    return () => socket.off('notification:new', f);
+  }, [socket]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const markAll = async () => { await api.post('/notify/notifications/read', { all: true }); setItems((l) => l.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() }))); refreshCounts(); };
   const markOne = async (n) => { if (n.readAt) return; await api.post('/notify/notifications/read', { ids: [n.id] }).catch(() => {}); setItems((l) => l.map((x) => (x.id === n.id ? { ...x, readAt: new Date().toISOString() } : x))); refreshCounts(); };
@@ -42,11 +61,14 @@ export default function Notifications() {
       <Reveal><div className="row"><h1 style={{ margin: 0, fontSize: '2.2rem' }}>{t('notif.title')}</h1><span className="spacer" /><Button size="sm" onClick={markAll}>{t('notif.markAll')}</Button></div></Reveal>
       <div className="grid two" style={{ marginTop: 18, alignItems: 'start' }}>
         <div className="col">
-          {!items ? <Skeleton h={200} /> : !items.length ? <Empty icon={<BellOff size={40} strokeWidth={1.5} />} title={t('notif.quietTitle')}>{t('notif.quietText')}</Empty> : items.map((n) => (
-            <Glass key={n.id} pad hover as={Link} to={linkFor(n)} onClick={() => markOne(n)} style={{ color: 'inherit', opacity: n.readAt ? 0.7 : 1, borderLeft: n.readAt ? undefined : '4px solid var(--teal)' }}>
-              <div className="row"><span className="notif-ico" aria-hidden>{ICON[n.type] ?? <Bell size={20} strokeWidth={1.75} />}</span><div style={{ flex: 1 }}><strong>{n.title}</strong><div className="muted small">{n.body}</div></div><span className="faint small">{timeAgo(n.createdAt)}</span></div>
-            </Glass>
-          ))}
+          {!items ? <Skeleton h={200} /> : !items.length ? <Empty icon={<BellOff size={40} strokeWidth={1.5} />} title={t('notif.quietTitle')}>{t('notif.quietText')}</Empty> : items.map((n) => {
+            const tx = notifText(n, i18n.language);
+            return (
+              <Glass key={n.id} pad hover as={Link} to={linkFor(n)} onClick={() => markOne(n)} style={{ color: 'inherit', opacity: n.readAt ? 0.7 : 1, borderLeft: n.readAt ? undefined : '4px solid var(--teal)' }}>
+                <div className="row"><span className="notif-ico" aria-hidden>{ICON[n.type] ?? <Bell size={20} strokeWidth={1.75} />}</span><div style={{ flex: 1 }}><strong>{tx.title}</strong><div className="muted small">{tx.body}</div></div><span className="faint small">{timeAgo(n.createdAt)}</span></div>
+              </Glass>
+            );
+          })}
         </div>
         <Glass pad as="section" aria-label={t('notif.prefsLabel')}><h3>{t('notif.prefs')}</h3>
           {!prefs ? <Skeleton h={160} /> : (
