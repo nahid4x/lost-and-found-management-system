@@ -2,7 +2,12 @@ import i18n from '../i18n/index.js';
 
 // React-er baire (plain JS) translate korar jonno
 const T = (k, o) => i18n.t(k, o);
-const loc = () => (i18n.language === 'bn' ? 'bn-BD' : undefined);
+const isBn = () => i18n.language?.startsWith('bn');
+const loc = () => (isBn() ? 'bn-BD' : undefined);
+
+// Bangla mode-e 0-9 ke ০-৯ kore (timeAgo-r "3 দিন আগে" -> "৩ দিন আগে")
+const BN_DIGITS = '০১২৩৪৫৬৭৮৯';
+export const num = (n) => (isBn() ? String(n).replace(/\d/g, (d) => BN_DIGITS[d]) : String(n));
 
 export const CATEGORIES = [
   ['electronics', 'Electronics'], ['wallet', 'Wallet & cards'], ['keys', 'Keys'], ['bags', 'Bags'], ['clothing', 'Clothing'],
@@ -14,9 +19,9 @@ export const STATUS_FLOW = ['open', 'matched', 'claimed', 'verified', 'returned'
 export function timeAgo(d, now = Date.now()) {
   const s = Math.max(0, Math.round((now - new Date(d).getTime()) / 1000));
   if (s < 45) return T('time.justNow');
-  if (s < 3600) return T('time.min', { n: Math.round(s / 60) });
-  if (s < 86400) return T('time.hour', { n: Math.round(s / 3600) });
-  if (s < 604800) return T('time.day', { n: Math.round(s / 86400) });
+  if (s < 3600) return T('time.min', { n: num(Math.round(s / 60)) });
+  if (s < 86400) return T('time.hour', { n: num(Math.round(s / 3600)) });
+  if (s < 604800) return T('time.day', { n: num(Math.round(s / 86400)) });
   return new Date(d).toLocaleDateString(loc());
 }
 export const fmtDate = (d) => new Date(d).toLocaleDateString(loc(), { year: 'numeric', month: 'short', day: 'numeric' });
