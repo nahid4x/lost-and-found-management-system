@@ -1759,3 +1759,64 @@ span.ico-row { display: inline-flex; flex-wrap: nowrap; }
 .app-shell .exp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 1100px) { .app-shell .exp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px)  { .app-shell .exp-grid { grid-template-columns: 1fr; } }
+
+/* Light mode contrast fixes */
+:root[data-theme="light"] .app-shell .tab {
+  color: #4b5b7c;
+  background: rgba(255, 255, 255, .7);
+  border-color: rgba(11, 27, 63, .15);
+}
+:root[data-theme="light"] .app-shell .tab[aria-selected="true"] {
+  color: #0b1b3f;
+  background: #fff;
+  border-color: rgba(37, 99, 235, .5);
+}
+:root[data-theme="light"] .app-shell .tab .badge { color: #fff; }
+
+/* Light mode: My reports (--rp-*) variables */
+:root[data-theme="light"] .rp,
+:root[data-theme="light"] .rp-overlay {
+  --rp-text: #0b1b3f;
+  --rp-muted: #5b6b8c;
+  --rp-surface: rgba(255, 255, 255, .75);
+  --rp-surface-2: rgba(37, 99, 235, .10);
+  --rp-border: rgba(11, 27, 63, .15);
+}
+:root[data-theme="light"] .rp-timeline__item::before { border-color: #fff; }
+:root[data-theme="light"] .rp select option { background: #fff; color: #0b1b3f; }
+:root[data-theme="light"] .rp textarea,
+:root[data-theme="light"] .rp select,
+:root[data-theme="light"] .rp-filters input,
+:root[data-theme="light"] .rp-overlay textarea {
+  background: #fff;
+  color: #0b1b3f;
+}
+:root[data-theme="light"] .rp-badge--neutral { background: rgba(11, 27, 63, .08); }
+:root[data-theme="light"] .rp-badge--muted { background: rgba(11, 27, 63, .06); }
+
+/* Light mode: chat buttons (attach, mic, call, video, delete) */
+:root[data-theme="light"] .chat-btn {
+  color: #0b1b3f;
+  background: #fff;
+  border: 1px solid rgba(11, 27, 63, .2);
+}
+:root[data-theme="light"] .chat-btn:hover:not(:disabled) {
+  background: rgba(37, 99, 235, .1);
+  border-color: rgba(37, 99, 235, .5);
+}
+:root[data-theme="light"] .chat-btn.voice { color: #16a34a; }
+:root[data-theme="light"] .chat-btn.video { color: #2563eb; }
+:root[data-theme="light"] .chat-btn.trash { color: #e11d48; }
+:root[data-theme="light"] .chat-btn.mic-btn.listening {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
+/* Light mode: match ring (Claims AI verification) */
+:root[data-theme="light"] .ring {
+  color: #0b1b3f;
+  background:
+    radial-gradient(closest-side, #fff 76%, transparent 78% 100%),
+    conic-gradient(var(--c) calc(var(--p) * 1%), rgba(11, 27, 63, .12) 0);
+}
+:root[data-theme="light"] .bar { background: rgba(11, 27, 63, .12); }
