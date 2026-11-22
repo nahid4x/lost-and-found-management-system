@@ -99,7 +99,6 @@ export function Tabs({ tabs, value, onChange }) {
     </div>
   );
 }
-
 export function BarChart({ data, height = 140 }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   const w = 100 / data.length;
@@ -110,8 +109,8 @@ export function BarChart({ data, height = 140 }) {
         return (
           <g key={d.label}>
             <rect x={i * w + w * 0.18} y={height / 2 - 12 - h} width={w * 0.64} height={h} rx="1.5" fill="url(#bg)" />
-            <text x={i * w + w / 2} y={height / 2 - 3} textAnchor="middle" fontSize="3.2" fill="#b4bbe0">{d.label}</text>
-            <text x={i * w + w / 2} y={height / 2 - 14 - h} textAnchor="middle" fontSize="3.4" fill="#f5f7ff">{d.value}</text>
+            <text x={i * w + w / 2} y={height / 2 - 3} textAnchor="middle" fontSize="3.2" style={{ fill: 'var(--muted)' }}>{d.label}</text>
+            <text x={i * w + w / 2} y={height / 2 - 14 - h} textAnchor="middle" fontSize="3.4" style={{ fill: 'var(--text)' }}>{d.value}</text>
           </g>
         );
       })}
