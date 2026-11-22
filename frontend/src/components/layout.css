@@ -1820,3 +1820,29 @@ span.ico-row { display: inline-flex; flex-wrap: nowrap; }
     conic-gradient(var(--c) calc(var(--p) * 1%), rgba(11, 27, 63, .12) 0);
 }
 :root[data-theme="light"] .bar { background: rgba(11, 27, 63, .12); }
+/* Light mode: wizard progress, gallery card, timeline labels */
+:root[data-theme="light"] .wiz-steps span { background: rgba(11, 27, 63, .14); }
+:root[data-theme="light"] .wiz-steps span.on {
+  background: linear-gradient(90deg, var(--violet), var(--teal));
+}
+:root[data-theme="light"] .gallery .main { background: rgba(11, 27, 63, .06); }
+:root[data-theme="light"] .tl { color: #4b5b7c; }
+/* Light mode: timeline dots and lines, dropzone border */
+:root[data-theme="light"] .tl::before { background: rgba(11, 27, 63, .18); }
+:root[data-theme="light"] .tl i {
+  background: #fff;
+  border-color: rgba(11, 27, 63, .35);
+}
+:root[data-theme="light"] .tl.done { color: #0b1b3f; }
+:root[data-theme="light"] .tl.done::before { background: var(--teal); }
+:root[data-theme="light"] .tl.done i {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+:root[data-theme="light"] .drop {
+  border-color: rgba(11, 27, 63, .35);
+}
+:root[data-theme="light"] .drop.over {
+  border-color: var(--teal);
+}
+:root[data-theme="light"] .bar > i { background: linear-gradient(90deg, var(--violet), var(--teal)); }
