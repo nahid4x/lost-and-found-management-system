@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ListChecks, MapPinned, MapPin, SearchX } from 'lucide-react';
 import { Glass, Field, Button, Empty, SkeletonGrid, Reveal } from '../components/ui.jsx';
+import VoiceField from '../components/VoiceField.jsx';
 import { ItemCard } from '../components/ItemParts.jsx';
 import { MapView } from '../components/maps.jsx';
 import { api, qs } from '../lib/api.js';
@@ -52,7 +53,7 @@ export default function ItemsPage({ type }) {
           <Button variant="primary" size="sm" onClick={() => nav(`/report/${type}`)}>{type === 'lost' ? t('items.reportLost') : t('items.reportFound')}</Button>
         </div>
         <Glass as="form" pad onSubmit={(e) => e.preventDefault()} className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 20 }} role="search" aria-label={t('items.filters')}>
-          <Field label={t('items.search')} placeholder={t('items.searchPlaceholder')} value={q} maxLength={100} onChange={(e) => setQ(e.target.value)} />
+          <VoiceField label={t('items.search')} placeholder={t('items.searchPlaceholder')} value={q} maxLength={100} onText={setQ} />
           <Field label={t('items.category')} as="select" value={f.category} onChange={(e) => set('category', e.target.value)}><option value="">{t('items.allCategories')}</option>{CATEGORIES.map(([k, l]) => <option key={k} value={k}>{t(`cat.${k}`, { defaultValue: l })}</option>)}</Field>
           <Field label={t('items.fromDate')} type="date" value={f.from} onChange={(e) => set('from', e.target.value)} />
           <Field label={t('items.toDate')} type="date" value={f.to} onChange={(e) => set('to', e.target.value)} />
