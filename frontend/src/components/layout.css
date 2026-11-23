@@ -1850,3 +1850,26 @@ span.ico-row { display: inline-flex; flex-wrap: nowrap; }
 
 .cm-anon { display: inline-grid; place-items: center; color: #c7d2fe; }
 :root[data-theme="light"] .cm-anon { color: #0b1b3f; }
+
+/* Light mode: Admin page */
+:root[data-theme="light"] .app-shell .table-wrap th { color: #4b5b7c; }
+:root[data-theme="light"] .app-shell .table-wrap td { color: #0b1b3f; }
+:root[data-theme="light"] .app-shell .kpis .stat b { color: #0b1b3f; }
+:root[data-theme="light"] .app-shell .kpis .stat span { color: #4b5b7c; }
+:root[data-theme="light"] .app-shell svg[role="img"] text { fill: #0b1b3f !important; }
+/* Light mode: table row lines */
+:root[data-theme="light"] .app-shell .table-wrap th,
+:root[data-theme="light"] .app-shell .table-wrap td {
+  border-bottom: 1px solid rgba(11, 27, 63, .12);
+}
+:root[data-theme="light"] .app-shell .table-wrap thead th {
+  border-bottom: 1px solid rgba(11, 27, 63, .22);
+}
+:root[data-theme="light"] .app-shell .table-wrap tbody tr:hover td {
+  background: rgba(37, 99, 235, .05);
+}
+:root[data-theme="light"] .app-shell .table-wrap td.row {
+  display: table-cell;
+  white-space: nowrap;
+}
+:root[data-theme="light"] .app-shell .table-wrap td.row > * { margin-right: 6px; }
