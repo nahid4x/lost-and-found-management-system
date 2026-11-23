@@ -118,3 +118,14 @@
 .quote:focus-visible { outline: 2px solid var(--teal, #2dd4bf); outline-offset: 2px; }
 .bubble.flash { animation: bubble-flash 1.4s ease; }
 @keyframes bubble-flash { 0%, 60% { box-shadow: 0 0 0 3px var(--teal, #2dd4bf); } 100% { box-shadow: none; } }
+/* Light theme: readable message bubbles */
+html[data-theme="light"] .bubble:not(.me) { background: #e6ebf7; color: #0b1b3f; border: 1px solid rgba(11, 27, 63, 0.1); }
+html[data-theme="light"] .bubble.me { color: #fff; border-color: transparent; }
+html[data-theme="light"] .bubble.me small { color: rgba(255, 255, 255, 0.9); opacity: 1; }
+html[data-theme="light"] .bubble.deleted:not(.me) { opacity: 1; background: #f1f4fa; color: #5b6b8c; border: 1px dashed rgba(11, 27, 63, 0.25); }
+html[data-theme="light"] .bubble.me.deleted { opacity: 1; background: #f1f4fa; color: #5b6b8c; border: 1px dashed rgba(11, 27, 63, 0.25); }
+html[data-theme="light"] .bubble.me.deleted small { color: #5b6b8c; }
+html[data-theme="light"] .quote { background: rgba(11, 27, 63, 0.08); }
+html[data-theme="light"] .quote strong { color: #0f766e; }
+html[data-theme="light"] .bubble.me .quote { background: rgba(255, 255, 255, 0.22); }
+html[data-theme="light"] .bubble.me .quote strong { color: #d1fae5; }
