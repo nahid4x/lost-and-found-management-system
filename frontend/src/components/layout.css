@@ -1847,5 +1847,6 @@ span.ico-row { display: inline-flex; flex-wrap: nowrap; }
 }
 :root[data-theme="light"] .bar > i { background: linear-gradient(90deg, var(--violet), var(--teal)); }
 
-.cm-anon { display: inline-grid; place-items: center; color: #3b3a6b; }
+
+.cm-anon { display: inline-grid; place-items: center; color: #c7d2fe; }
 :root[data-theme="light"] .cm-anon { color: #0b1b3f; }
