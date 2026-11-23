@@ -14,6 +14,7 @@
     "claims": "Claims",
     "messages": "Messages",
     "settings": "Settings",
+    "admin": "Admin",
     "tagline": "Lost & Found",
     "hi": "Hi, {{name}}",
     "signIn": "Sign in",

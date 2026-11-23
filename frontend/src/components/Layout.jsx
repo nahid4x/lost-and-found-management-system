@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import {
   Home, Search, Gift, MapPin, FileText, Handshake, MessageCircle, Settings,
-  User, LogOut, Heart,
+  User, LogOut, Heart, Shield,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/Auth.jsx";
@@ -19,6 +19,7 @@ const links = [
   { to: "/claims", label: "claims", icon: Handshake, auth: true },
   { to: "/messages", label: "messages", icon: MessageCircle, auth: true },
   { to: "/settings", label: "settings", icon: Settings, auth: true },
+  { to: "/admin", label: "admin", icon: Shield, auth: true, admin: true },
 ];
 
 function useTheme() {
@@ -102,12 +103,12 @@ function AvatarMenu() {
 }
 
 export default function Layout({ children }) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { t } = useTranslation();
   const live = useLive();
   const [theme, toggleTheme] = useTheme();
   const unread = live?.unreadNotifs ?? 0;
-  const visibleLinks = links.filter((l) => !l.auth || user);
+  const visibleLinks = links.filter((l) => (!l.auth || user) && (!l.admin || isAdmin));
 
   return (
     <div className="app-shell">
