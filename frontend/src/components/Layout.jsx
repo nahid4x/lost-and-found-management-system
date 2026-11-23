@@ -103,14 +103,12 @@ function AvatarMenu() {
 }
 
 export default function Layout({ children }) {
- const { user, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { t } = useTranslation();
   const live = useLive();
   const [theme, toggleTheme] = useTheme();
   const unread = live?.unreadNotifs ?? 0;
- const visibleLinks = links.filter((l) => (!l.auth || user) && (!l.admin || isAdmin));
-    (l) => (!l.auth || user) && (!l.admin || user?.role === "admin")
-  );
+  const visibleLinks = links.filter((l) => (!l.auth || user) && (!l.admin || isAdmin));
 
   return (
     <div className="app-shell">
