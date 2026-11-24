@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ListChecks, MapPinned, MapPin, SearchX } from 'lucide-react';
-import { Glass, Field, Button, Empty, SkeletonGrid, Reveal } from '../components/ui.jsx';
-import VoiceField from '../components/VoiceField.jsx';
+import { ListChecks, MapPinned, SearchX } from 'lucide-react';
+import { Button, Empty, SkeletonGrid, Reveal } from '../components/ui.jsx';
+import SearchBar from '../components/SearchBar.jsx';
 import { ItemCard } from '../components/ItemParts.jsx';
 import { MapView } from '../components/maps.jsx';
 import { api, qs } from '../lib/api.js';
-import { CATEGORIES, errMsg } from '../lib/util.js';
+import { errMsg } from '../lib/util.js';
 import { useToast } from '../context/Toast.jsx';
 
 export default function ItemsPage({ type }) {
@@ -43,6 +43,9 @@ export default function ItemsPage({ type }) {
 
   const locate = () => navigator.geolocation?.getCurrentPosition((p) => { const n = new URLSearchParams(sp); n.set('lat', p.coords.latitude.toFixed(4)); n.set('lng', p.coords.longitude.toFixed(4)); if (!n.get('radiusKm')) n.set('radiusKm', '10'); setSp(n, { replace: true }); }, () => toast.error(t('items.locationDenied')));
 
+  const clearLocation = () => { const n = new URLSearchParams(sp); ['lat', 'lng', 'radiusKm'].forEach((k) => n.delete(k)); setSp(n, { replace: true }); };
+  const clearAll = () => { setQ(''); setSp(new URLSearchParams(), { replace: true }); };
+
   return (
     <div className="container">
       <Reveal>
@@ -52,14 +55,7 @@ export default function ItemsPage({ type }) {
           <Button size="sm" aria-pressed={view === 'map'} onClick={() => setView('map')}><MapPinned size={14} /> {t('items.map')}</Button>
           <Button variant="primary" size="sm" onClick={() => nav(`/report/${type}`)}>{type === 'lost' ? t('items.reportLost') : t('items.reportFound')}</Button>
         </div>
-        <Glass as="form" pad onSubmit={(e) => e.preventDefault()} className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 20 }} role="search" aria-label={t('items.filters')}>
-          <VoiceField label={t('items.search')} placeholder={t('items.searchPlaceholder')} value={q} maxLength={100} onText={setQ} />
-          <Field label={t('items.category')} as="select" value={f.category} onChange={(e) => set('category', e.target.value)}><option value="">{t('items.allCategories')}</option>{CATEGORIES.map(([k, l]) => <option key={k} value={k}>{t(`cat.${k}`, { defaultValue: l })}</option>)}</Field>
-          <Field label={t('items.fromDate')} type="date" value={f.from} onChange={(e) => set('from', e.target.value)} />
-          <Field label={t('items.toDate')} type="date" value={f.to} onChange={(e) => set('to', e.target.value)} />
-          <Field label={t('items.radius')} as="select" value={f.lat ? f.radiusKm || '10' : ''} disabled={!f.lat} onChange={(e) => set('radiusKm', e.target.value)}>{[1, 2, 5, 10, 25, 50].map((r) => <option key={r} value={r}>{t('items.km', { value: r })}</option>)}<option value="">—</option></Field>
-          <div className="field"><label>{t('items.nearMe')}</label><div className="row"><Button type="button" size="sm" onClick={locate}><MapPin size={14} /> {t('items.useLocation')}</Button>{f.lat && <Button type="button" size="sm" onClick={() => { const n = new URLSearchParams(sp); ['lat', 'lng', 'radiusKm'].forEach((k) => n.delete(k)); setSp(n, { replace: true }); }}>{t('items.clear')}</Button>}</div></div>
-        </Glass>
+        <SearchBar q={q} setQ={setQ} f={f} set={set} locate={locate} clearLocation={clearLocation} clearAll={clearAll} />
       </Reveal>
       {view === 'map' ? <MapView tall items={mapItems} onSelect={(i) => nav(`/items/${i.id}`)} /> : !items ? <SkeletonGrid /> : !items.length ? (
         <Empty icon={<SearchX size={40} strokeWidth={1.5} />} title={t('items.emptyTitle')} action={<Button variant="primary" onClick={() => nav(`/report/${type}`)}>{t('items.createReport')}</Button>}>{type === 'lost' ? t('items.emptyLost') : t('items.emptyFound')}</Empty>
