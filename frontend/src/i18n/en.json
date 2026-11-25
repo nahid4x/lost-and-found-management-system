@@ -82,7 +82,7 @@
     "radius": "Radius (km)",
     "km": "{{value}} km",
     "nearMe": "Near me",
-    "useLocation": "Use location",
+    "anyDate": "Any date", "useLocation": "Use location",
     "clear": "Clear",
     "locationDenied": "Location permission denied",
     "emptyTitle": "Nothing here yet",
