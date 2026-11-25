@@ -4,6 +4,20 @@ A secure, real-time lost-and-found platform: report lost/found items, get explai
 verify ownership privately, chat and call inside the app, and close the case. Built as six Node.js microservices
 behind an Nginx gateway, with a React glassmorphism frontend.
 
+## Features
+
+* **Reports & search** — report lost or found items with photos. The search bar has live text search plus three
+  dropdown filters: *category* (all categories as chips), *date range* (from / to) and *Near me* (radius 1, 2, 5, 10,
+  25 or 50 km after the browser shares the location). Filters live in the URL, so a filtered list can be shared or reloaded.
+* **Matching** — explainable match suggestions with a "Why?" breakdown for every score.
+* **Claims** — private ownership verification with audit log, approval and return tracking.
+* **Chat & calls** — real-time chat with avatars, typing and read state, **reply to a message** (quoted reply),
+  **voice typing** in the message box (browser speech recognition), and in-app calls.
+* **Settings** — signed-in **devices**, **accessibility** options, and **"My data"** (download your data as a PDF).
+* **Look & language** — dark and light theme (chat bubbles are readable in both) and English / Bangla (বাংলা) with a
+  language switch; the choice is remembered in the browser.
+* **Admin** — users, items, claims, audit log and statistics (the Admin link shows only for admin accounts).
+
 > **Read `docs/SECURITY_AUDIT.md` first.** It lists exactly what was verified (and how), what was *not* run in the
 > build environment, and the residual risks.
 
@@ -76,7 +90,7 @@ Checklist: DNS + TLS cert, `APP_URL`/`CORS_ORIGINS` set to the exact https origi
 ```bash
 # needs MongoDB 7 and Redis running locally
 cd services && npm ci && npm test          # backend tests (78) with coverage
-cd ../frontend && npm ci && npm test       # frontend unit tests (13)
+cd ../frontend && npm ci && npm test       # frontend unit tests (vitest + Testing Library)
 npm run dev                                # Vite dev server; /api and /socket.io proxy to VITE_DEV_GATEWAY (default https://localhost)
 node scripts/e2e-local.mjs                 # boots all 6 services as processes and drives the full flow (33 checks)
 ./scripts/gateway-probe.sh                 # black-box checks of the gateway (headers, blocked paths, admin pre-check, rate limit…)
@@ -133,4 +147,10 @@ docs/SECURITY_AUDIT.md          verification evidence, gaps, residual risks
 * *"Invalid environment configuration"* — read the listed variables; regenerate with `./scripts/init-env.sh` on a fresh checkout.
 * *Uploads fail* — Cloudinary credentials missing/incorrect (Items/Claims logs show the error, never the secret).
 * *Calls connect on Wi-Fi but not on mobile data* — configure TURN (above).
+* *"Near me → Use location" does nothing* — allow **Location** for the site in the browser (lock icon next to the address),
+  and turn on Windows/macOS location services. Geolocation only works on `https://` or `localhost`.
+* *Voice typing button does not appear or does not hear you* — it needs a browser with speech recognition (Chrome / Edge)
+  and microphone permission for the site.
+* *UI changes do not show after a rebuild* — `docker compose up -d --build frontend && docker compose restart gateway`,
+  then hard-refresh (`Ctrl+Shift+R`).
 * *Behind another load balancer* — set `TRUST_PROXY_HOPS` to the real number of proxies, or rate limiting keys on the wrong IP.
