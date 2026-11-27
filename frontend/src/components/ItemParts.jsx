@@ -18,7 +18,7 @@ export function ItemCard({ item }) {
         <div className="thumb">
           {item.images?.[0] ? <img src={item.images[0]} alt="" loading="lazy" decoding="async" /> : <span aria-hidden><CatIcon category={item.category} size={40} strokeWidth={1.5} /></span>}
           <div className="thumb-shade" aria-hidden="true" />
-          <div className="thumb-badges"><Chip kind={item.type} /><Chip kind={item.status} /></div>
+          <div className="thumb-badges"><Chip kind={item.status} /></div>
           <span className="thumb-time"><Clock size={14} aria-hidden="true" /> {timeAgo(item.createdAt)}</span>
         </div>
         <div className="body">
