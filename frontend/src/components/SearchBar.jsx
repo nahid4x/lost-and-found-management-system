@@ -1,10 +1,23 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, X, MapPin, Tag, CalendarDays, ChevronDown } from 'lucide-react';
 import { CATEGORIES } from '../lib/util.js';
 import '../styles/searchbar.css';
 
 const RADII = [1, 2, 5, 10, 25, 50];
+
+const pad = (n) => String(n).padStart(2, '0');
+/** Local yyyy-mm-dd (toISOString would shift the day for users ahead of UTC, e.g. Dhaka). */
+const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/** Default range: the same day last month (clamped to month end) up to today. */
+export function defaultRange(today = new Date()) {
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  const lastDayPrev = new Date(y, m, 0).getDate();
+  const from = new Date(y, m - 1, Math.min(today.getDate(), lastDayPrev));
+  return { from: iso(from), to: iso(today) };
+}
 
 /** A filter button that opens a small panel under it. Closes on an outside click or Escape. */
 function Filter({ icon, label, active, open, onToggle, onClose, wide, children }) {
@@ -28,16 +41,36 @@ function Filter({ icon, label, active, open, onToggle, onClose, wide, children }
   );
 }
 
-/** Search box for the item lists, with category, date and "near me" filters that open as small panels. */
+/** Search box for the item lists, with category, From/To date and "near me" filters. */
 export default function SearchBar({ q, setQ, f, set, locate, clearLocation, clearAll }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState('');
   const close = useCallback(() => setOpen(''), []);
   const toggle = (k) => setOpen((o) => (o === k ? '' : k));
+  const def = useMemo(() => defaultRange(), []);
+
+  // Fill last month -> today whenever BOTH dates are empty: first load, after "Clear", and when
+  // the parent empties them again (e.g. switching from Lost to Found items).
+  // - One set() per pass: if the parent builds the next state from the current one, two calls in
+  //   the same pass overwrite each other. The effect runs again after each update and fills "To".
+  // - Runs after every render (no deps) so it still notices a parent reset that leaves the
+  //   dates "empty -> empty". `tries` stops it if the parent keeps rejecting the value.
+  // - Clearing just one field by hand is left alone, so the user can still edit freely.
+  const refill = useRef(true);
+  const tries = useRef(0);
+  useEffect(() => {
+    if (f.from && f.to) { refill.current = false; tries.current = 0; return; }
+    if (!f.from && !f.to) refill.current = true;
+    if (!refill.current || tries.current >= 4) return;
+    tries.current += 1;
+    if (f.from) set('to', def.to);
+    else set('from', def.from);
+  });
+
   const radius = String(f.radiusKm || '10');
-  const active = [f.category, f.from, f.to, f.lat].some(Boolean);
+  const dateChanged = Boolean((f.from && f.from !== def.from) || (f.to && f.to !== def.to));
+  const active = Boolean(f.category || f.lat || dateChanged);
   const catName = (k) => t(`cat.${k}`, { defaultValue: CATEGORIES.find((c) => c[0] === k)?.[1] ?? k });
-  const dateLabel = f.from && f.to ? `${f.from} – ${f.to}` : f.from ? `${t('items.fromDate')}: ${f.from}` : f.to ? `${t('items.toDate')}: ${f.to}` : t('items.anyDate');
 
   return (
     <form className="sbar" role="search" aria-label={t('items.filters')} onSubmit={(e) => e.preventDefault()}>
@@ -57,14 +90,19 @@ export default function SearchBar({ q, setQ, f, set, locate, clearLocation, clea
           </div>
         </Filter>
 
-        <Filter icon={<CalendarDays size={16} />} label={dateLabel} active={Boolean(f.from || f.to)} open={open === 'date'} onToggle={() => toggle('date')} onClose={close}>
-          {[['from', 'items.fromDate'], ['to', 'items.toDate']].map(([k, label]) => (
-            <label key={k} className="sbar-date"><span>{t(label)}</span>
-              <input type="date" value={f[k]} onChange={(e) => set(k, e.target.value)} />
-              {f[k] && <button type="button" className="sbar-round small" aria-label={`${t('items.clear')} ${t(label)}`} onClick={() => set(k, '')}><X size={14} /></button>}
-            </label>
-          ))}
-        </Filter>
+        {[['from', 'items.fromDate'], ['to', 'items.toDate']].map(([k, label]) => (
+          <label key={k} className="sbar-filter sbar-datef">
+            <CalendarDays size={16} aria-hidden />
+            <span className="sbar-filter-t">{t(label)}</span>
+            <input
+              type="date"
+              value={f[k]}
+              min={k === 'to' ? f.from || undefined : undefined}
+              max={k === 'from' ? f.to || def.to : def.to}
+              onChange={(e) => set(k, e.target.value)}
+            />
+          </label>
+        ))}
 
         <Filter icon={<MapPin size={16} />} label={f.lat ? `${t('items.nearMe')} · ${t('items.km', { value: radius })}` : t('items.nearMe')} active={Boolean(f.lat)} open={open === 'near'} onToggle={() => toggle('near')} onClose={close}>
           <p className="sbar-hint">{t('items.radius')}</p>
@@ -78,7 +116,7 @@ export default function SearchBar({ q, setQ, f, set, locate, clearLocation, clea
           )}
         </Filter>
 
-        {active && <button type="button" className="sbar-clear" onClick={() => { clearAll(); close(); }}><X size={14} /> {t('items.clear')}</button>}
+        {active && <button type="button" className="sbar-clear" onClick={() => { refill.current = true; clearAll(); close(); }}><X size={14} /> {t('items.clear')}</button>}
       </div>
     </form>
   );
