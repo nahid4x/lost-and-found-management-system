@@ -1873,3 +1873,68 @@ span.ico-row { display: inline-flex; flex-wrap: nowrap; }
   white-space: nowrap;
 }
 :root[data-theme="light"] .app-shell .table-wrap td.row > * { margin-right: 6px; }
+
+/* Search bar */
+.sbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 20px;
+}
+.sbar-main { flex: 1 1 260px; height: 44px; min-height: 0; padding: 0 14px; }
+.sbar-input { font-size: 0.95rem; }
+.sbar-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sbar-filter { height: 40px; padding: 0 12px; font-size: 0.85rem; }
+
+/* From / To date */
+.sbar-datef { cursor: text; }
+.sbar-datef input {
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color-scheme: dark; /* calendar icon ar popup dark theme-e dekhabe */
+}
+.sbar-datef:focus-within { border-color: #6d8cff; }
+
+/* Dropdown panels (Category + Near me) */
+.sbar-panel {
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 14px;
+  border-radius: 18px;
+}
+.sbar-panel.wide { width: 420px; }
+
+.sbar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sbar-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* "All categories" prothom line-e pura width */
+.sbar-panel.wide .sbar-chip:first-child { grid-column: 1 / -1; }
+
+/* Near me: Use location button pura width */
+.sbar-use { width: 100%; margin-top: 12px; justify-content: center; }
+
+@media (max-width: 480px) {
+  .sbar-panel.wide { width: 300px; }
+  .sbar-panel.wide .sbar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
